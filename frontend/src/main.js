@@ -617,7 +617,6 @@ async function init() {
 
 appElement.innerHTML = `
   <nav id="topbar">
-    <div id="topbar-brand">OpenLyric</div>
     <div id="topbar-tabs">
       <button id="tab-lyricas" class="tab active" data-tab="lyricas">${t('tabLyricas')}</button>
       <button id="tab-biblia" class="tab" data-tab="biblia">${t('tabBiblia')}</button>
