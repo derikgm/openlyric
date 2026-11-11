@@ -486,33 +486,56 @@
     background: rgba(255, 255, 255, 0.3);
 }
 
-/* ---------- Global controls ---------- */
-#global-controls {
+/* ---------- Modo presentación ---------- */
+body.presentation-mode {
+    overflow: hidden;
+    background-color: #000;
+}
+
+body.presentation-mode #app {
+    width: 100vw;
+    height: 100vh;
+}
+
+#presentation {
     position: fixed;
-    bottom: 1.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 101;
+    inset: 0;
     display: flex;
-    gap: 0.5rem;
-}
-
-#global-controls button {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
-    border: none;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.7);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5vw 6vw;
+    box-sizing: border-box;
+    text-align: center;
     color: white;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.2s ease;
+    transition: background 0.3s ease;
 }
 
-#global-controls button:hover {
-    background: rgba(0, 0, 0, 0.85);
-    border-color: rgba(255, 255, 255, 0.4);
+#presentation.has-text {
+    background: rgba(0, 0, 0, 0.42);
+}
+
+#presentation-title {
+    font-size: clamp(1rem, 2.2vw, 1.8rem);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    opacity: 0.7;
+    margin-bottom: 3vh;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+
+#presentation-title:empty {
+    display: none;
+}
+
+#presentation-text {
+    max-width: 100%;
+    font-size: clamp(2.2rem, 6.5vw, 8rem);
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
 }
 
 /* ---------- Responsive ---------- */

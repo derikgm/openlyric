@@ -8,10 +8,15 @@ import {
   CreateSong,
   SetBackground,
   SetBackgroundFromFile,
-  HasSecondMonitor,
+  EnsurePresentation,
   GetBackground,
   LoadBackgrounds,
   OpenDonationPage,
+  GetPresentationMode,
+  GetPresentationState,
+  GetPresentationBackground,
+  UpdatePresentation,
+  UpdatePresentationBackground,
 } from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
@@ -49,9 +54,13 @@ let bibleVersionLoaded = '';
 let bibleLoading = false;
 
 // Opciones / UI
-let autoAdvance = false;
-let autoAdvanceTimer = null;
 let lang = localStorage.getItem('openlyric:lang') || 'es';
+
+// Presentación separada
+let presentationMode = false;
+let presentationBackground = '';
+let lastPresentationTitle = '';
+let lastPresentationText = '';
 
 // ---------- i18n ----------
 const i18n = {
@@ -76,8 +85,6 @@ const i18n = {
     blockShort: 'Bloque',
     prevBlock: '← Bloque anterior',
     nextBlock: 'Siguiente bloque →',
-    autoAdvanceOn: '⏱ Avance automático: ON',
-    autoAdvanceOff: '⏱ Avance automático: OFF',
     versions: 'Versiones de la Biblia',
     noVersions: 'No se encontraron versiones de la Biblia.',
     version: 'Versión:',
@@ -105,6 +112,9 @@ const i18n = {
     noSecondMonitorMsg: 'OpenLyric necesita un segundo monitor o proyector para mostrar las letras. Puedes seguir usando la app para preparar canciones y opciones.',
     noSecondMonitorHint: 'Conecta un segundo monitor y pulsa «Reintentar detección».',
     retryDetection: 'Reintentar detección',
+    presentationSection: 'Presentación',
+    presentationHelp: 'Abre la ventana de presentación en el segundo monitor. Úsalo si cerraste la ventana o si conectaste el monitor después de iniciar la app.',
+    openPresentation: 'Abrir presentación',
     monitorDetected: 'Segundo monitor detectado.',
     monitorNotDetected: 'Aún no se detecta un segundo monitor.',
     monitorError: 'Error al detectar monitores.',
@@ -132,8 +142,6 @@ const i18n = {
     blockShort: 'Block',
     prevBlock: '← Previous block',
     nextBlock: 'Next block →',
-    autoAdvanceOn: '⏱ Auto-advance: ON',
-    autoAdvanceOff: '⏱ Auto-advance: OFF',
     versions: 'Bible versions',
     noVersions: 'No Bible versions found.',
     version: 'Version:',
@@ -161,6 +169,9 @@ const i18n = {
     noSecondMonitorMsg: 'OpenLyric needs a second monitor or projector to display lyrics. You can still use the app to prepare songs and options.',
     noSecondMonitorHint: 'Connect a second monitor and press "Retry detection".',
     retryDetection: 'Retry detection',
+    presentationSection: 'Presentation',
+    presentationHelp: 'Opens the presentation window on the second monitor. Use it if you closed the window or connected the monitor after starting the app.',
+    openPresentation: 'Open presentation',
     monitorDetected: 'Second monitor detected.',
     monitorNotDetected: 'No second monitor detected yet.',
     monitorError: 'Error detecting monitors.',
@@ -205,6 +216,9 @@ function applyI18n() {
   document.getElementById('opciones-bg-help').innerText = t('backgroundHelp');
   document.getElementById('opciones-lang-title').innerText = t('language');
   document.getElementById('opciones-lang-help').innerText = t('languageHelp');
+  document.getElementById('opciones-presentation-title').innerText = t('presentationSection');
+  document.getElementById('opciones-presentation-help').innerText = t('presentationHelp');
+  document.getElementById('opciones-presentation-open').innerText = t('openPresentation');
   document.getElementById('opciones-donations-title').innerText = t('donations');
   document.getElementById('opciones-donations-text').innerText = t('donationsText');
   document.getElementById('opciones-donate').innerText = t('donateBtn');
@@ -214,11 +228,6 @@ function applyI18n() {
   document.getElementById('monitor-warning-msg').innerText = t('noSecondMonitorMsg');
   document.getElementById('monitor-warning-hint').innerText = t('noSecondMonitorHint');
   document.getElementById('retry-monitor').innerText = t('retryDetection');
-
-  // Auto-avance
-  document.getElementById('auto-advance-button').innerText = autoAdvance
-    ? t('autoAdvanceOn')
-    : t('autoAdvanceOff');
 }
 
 // ---------- Utilidades ----------
@@ -230,39 +239,10 @@ function splitBlocks(lyrics) {
   return blocks.length > 0 ? blocks : [String(lyrics ?? '')];
 }
 
-function clearAutoAdvance() {
-  if (autoAdvanceTimer) {
-    clearInterval(autoAdvanceTimer);
-    autoAdvanceTimer = null;
-  }
-}
+// ---------- Presentación ----------
+let lastSentBackground = null;
 
-function startAutoAdvance() {
-  clearAutoAdvance();
-  if (currentTab === 'opciones') return;
-
-  const items = currentTab === 'biblia' ? bibleVerses : blocks;
-  if (!items || items.length === 0) return;
-
-  autoAdvanceTimer = setInterval(() => {
-    if (currentTab === 'biblia') {
-      if (bibleVerses.length === 0) return;
-      currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
-      renderBiblePane();
-    } else {
-      if (blocks.length === 0) return;
-      currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
-      renderLyricas();
-    }
-  }, 8000);
-}
-
-function restartAutoAdvanceIfNeeded() {
-  if (autoAdvance) startAutoAdvance();
-}
-
-// ---------- Fondos ----------
-function applyBackground(value) {
+function setBackgroundImage(value) {
   const root = document.getElementById('app');
   if (!root) return;
 
@@ -273,6 +253,34 @@ function applyBackground(value) {
 
   const url = value.startsWith('data:') ? value : `backgrounds/${value}`;
   root.style.backgroundImage = `url("${url}")`;
+}
+
+async function pushPresentationState() {
+  if (presentationMode) return;
+  try {
+    await UpdatePresentation(lastPresentationTitle, lastPresentationText);
+  } catch (e) {
+    // La ventana de presentación puede no estar abierta.
+  }
+}
+
+function updatePresentationState(title, text) {
+  lastPresentationTitle = title ?? '';
+  lastPresentationText = text ?? '';
+  pushPresentationState();
+}
+
+// ---------- Fondos ----------
+function applyBackground(value) {
+  presentationBackground = value || '';
+  setBackgroundImage(presentationBackground);
+
+  if (presentationBackground !== lastSentBackground) {
+    lastSentBackground = presentationBackground;
+    UpdatePresentationBackground(presentationBackground).catch(() => {});
+  }
+
+  pushPresentationState();
 }
 
 // ---------- Render ----------
@@ -370,6 +378,11 @@ function renderLyricas() {
     controlsEl.style.display = 'none';
     displayEl.innerText = '';
   }
+
+  updatePresentationState(
+    song ? song.title ?? '' : '',
+    song && blocks.length > 0 ? blocks[currentBlockIndex] ?? '' : ''
+  );
 }
 
 function selectLyricasSong(index) {
@@ -377,28 +390,24 @@ function selectLyricasSong(index) {
   currentSongIndex = index;
   currentBlockIndex = 0;
   renderLyricas();
-  restartAutoAdvanceIfNeeded();
 }
 
 function selectLyricasBlock(index) {
   if (blocks.length === 0) return;
   currentBlockIndex = index;
   renderLyricas();
-  restartAutoAdvanceIfNeeded();
 }
 
 function prevLyricasBlock() {
   if (blocks.length === 0) return;
   currentBlockIndex = (currentBlockIndex - 1 + blocks.length) % blocks.length;
   renderLyricas();
-  restartAutoAdvanceIfNeeded();
 }
 
 function nextLyricasBlock() {
   if (blocks.length === 0) return;
   currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
   renderLyricas();
-  restartAutoAdvanceIfNeeded();
 }
 
 // ---------- Fondos (galería de imágenes) ----------
@@ -533,7 +542,6 @@ async function selectBibleVersion(abbrev) {
   setChapterVerses();
 
   renderBiblePane();
-  restartAutoAdvanceIfNeeded();
 }
 
 function renderBiblia() {
@@ -639,6 +647,7 @@ function renderBiblePane() {
   if (!song) {
     titleEl.innerText = '';
     controlsEl.style.display = 'none';
+    updatePresentationState('', '');
     return;
   }
 
@@ -650,6 +659,7 @@ function renderBiblePane() {
     empty.innerText = t('noVerses');
     versesEl.appendChild(empty);
     controlsEl.style.display = 'none';
+    updatePresentationState(song.title ?? '', '');
     return;
   }
 
@@ -662,13 +672,14 @@ function renderBiblePane() {
     item.addEventListener('click', () => {
       currentVerseIndex = Number(item.dataset.index);
       renderBiblePane();
-      restartAutoAdvanceIfNeeded();
     });
     versesEl.appendChild(item);
   }
 
   displayEl.innerText = bibleVerses[currentVerseIndex] ?? '';
   controlsEl.style.display = 'flex';
+
+  updatePresentationState(song.title ?? '', bibleVerses[currentVerseIndex] ?? '');
 }
 
 function selectBibleBook(name) {
@@ -679,7 +690,6 @@ function selectBibleBook(name) {
   currentVerseIndex = 0;
   setChapterVerses();
   renderBiblePane();
-  restartAutoAdvanceIfNeeded();
 }
 
 function selectBibleChapter(index) {
@@ -688,21 +698,18 @@ function selectBibleChapter(index) {
   currentVerseIndex = 0;
   setChapterVerses();
   renderBiblePane();
-  restartAutoAdvanceIfNeeded();
 }
 
 function prevBibliaVerse() {
   if (bibleVerses.length === 0) return;
   currentVerseIndex = (currentVerseIndex - 1 + bibleVerses.length) % bibleVerses.length;
   renderBiblePane();
-  restartAutoAdvanceIfNeeded();
 }
 
 function nextBibliaVerse() {
   if (bibleVerses.length === 0) return;
   currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
   renderBiblePane();
-  restartAutoAdvanceIfNeeded();
 }
 
 // ---------- Opciones ----------
@@ -724,16 +731,8 @@ function showTab(tab) {
   });
   document.getElementById(`view-${tab}`).style.display = 'flex';
 
-  // El control de auto-avance no aplica en Opciones.
-  const globalControls = document.getElementById('global-controls');
-  if (globalControls) globalControls.style.display = tab === 'opciones' ? 'none' : 'flex';
-
   updateSecondMonitorWarning();
-
-  clearAutoAdvance();
   render();
-
-  if (autoAdvance && tab !== 'opciones') startAutoAdvance();
 }
 
 // Muestra u oculta la advertencia de segundo monitor según la pestaña activa.
@@ -754,9 +753,9 @@ async function init() {
   document.getElementById('tab-biblia').addEventListener('click', () => showTab('biblia'));
   document.getElementById('tab-opciones').addEventListener('click', () => showTab('opciones'));
 
-  // Validar que exista segundo monitor para proyectar
+  // Validar que exista segundo monitor y arrancar la ventana de presentación
   try {
-    hasSecondMonitor = !!(await HasSecondMonitor());
+    hasSecondMonitor = !!(await EnsurePresentation());
   } catch (e) {
     hasSecondMonitor = false;
   }
@@ -778,9 +777,9 @@ async function init() {
   // Restaurar el fondo persistido por el backend
   try {
     const bg = await GetBackground();
-    if (bg) applyBackground(bg);
+    applyBackground(bg || '');
   } catch (e) {
-    // Sin fondo persistido.
+    applyBackground('');
   }
 
   // Cargar versiones de la Biblia
@@ -822,6 +821,23 @@ async function init() {
       if (statusEl) statusEl.innerText = t('errorBackground');
     };
     reader.readAsDataURL(file);
+  });
+
+  // Abrir la ventana de presentación manualmente
+  document.getElementById('opciones-presentation-open').addEventListener('click', async () => {
+    const statusEl = document.getElementById('opciones-presentation-status');
+
+    try {
+      hasSecondMonitor = !!(await EnsurePresentation());
+      if (statusEl) {
+        statusEl.innerText = hasSecondMonitor ? t('monitorDetected') : t('monitorNotDetected');
+      }
+      updateSecondMonitorWarning();
+    } catch (e) {
+      hasSecondMonitor = false;
+      if (statusEl) statusEl.innerText = t('monitorError');
+      updateSecondMonitorWarning();
+    }
   });
 
   // Donaciones
@@ -891,21 +907,12 @@ async function init() {
     }
   });
 
-  // Auto-avance (global)
-  document.getElementById('auto-advance-button').addEventListener('click', () => {
-    autoAdvance = !autoAdvance;
-    document.getElementById('auto-advance-button').innerText = autoAdvance
-      ? t('autoAdvanceOn')
-      : t('autoAdvanceOff');
-    if (autoAdvance) startAutoAdvance(); else clearAutoAdvance();
-  });
-
-  // Reintentar detección de segundo monitor
+  // Reintentar detección de segundo monitor (y abrir la presentación si aparece)
   document.getElementById('retry-monitor').addEventListener('click', async () => {
     const statusEl = document.getElementById('monitor-warning-status');
 
     try {
-      hasSecondMonitor = !!(await HasSecondMonitor());
+      hasSecondMonitor = !!(await EnsurePresentation());
       if (statusEl) {
         statusEl.innerText = hasSecondMonitor ? t('monitorDetected') : t('monitorNotDetected');
       }
@@ -936,7 +943,8 @@ async function init() {
   showTab(currentTab);
 }
 
-appElement.innerHTML = `
+function buildControlUI() {
+  appElement.innerHTML = `
   <nav id="topbar">
     <div id="topbar-tabs">
       <button id="tab-lyricas" class="tab active" data-tab="lyricas">${t('tabLyricas')}</button>
@@ -1025,6 +1033,13 @@ appElement.innerHTML = `
           </section>
 
           <section class="opciones-card">
+            <h2 id="opciones-presentation-title">${t('presentationSection')}</h2>
+            <p id="opciones-presentation-help" class="opciones-help">${t('presentationHelp')}</p>
+            <button id="opciones-presentation-open">${t('openPresentation')}</button>
+            <div id="opciones-presentation-status" class="status-line"></div>
+          </section>
+
+          <section class="opciones-card">
             <h2 id="opciones-donations-title">${t('donations')}</h2>
             <p id="opciones-donations-text" class="opciones-help">${t('donationsText')}</p>
             <button id="opciones-donate">${t('donateBtn')}</button>
@@ -1033,9 +1048,86 @@ appElement.innerHTML = `
       </main>
     </section>
   </div>
-  <div id="global-controls">
-    <button id="auto-advance-button">${t('autoAdvanceOff')}</button>
-  </div>
 `;
+}
 
-init();
+// ---------- Modo presentación ----------
+async function startPresentationMode() {
+  document.body.classList.add('presentation-mode');
+  appElement.innerHTML = `
+    <div id="presentation">
+      <div id="presentation-title"></div>
+      <div id="presentation-text"></div>
+    </div>
+  `;
+
+  let lastBackgroundVersion = null;
+  let lastTitle = null;
+  let lastText = null;
+
+  const refresh = async () => {
+    let state;
+    try {
+      state = await GetPresentationState();
+    } catch (e) {
+      return;
+    }
+    if (!state) return;
+
+    const backgroundVersion = state.backgroundVersion ?? 0;
+    if (backgroundVersion !== lastBackgroundVersion) {
+      lastBackgroundVersion = backgroundVersion;
+      try {
+        const background = await GetPresentationBackground();
+        setBackgroundImage(background || '');
+      } catch (e) {
+        // Mantiene el fondo anterior.
+      }
+    }
+
+    const title = state.title ?? '';
+    if (title !== lastTitle) {
+      lastTitle = title;
+      const titleEl = document.getElementById('presentation-title');
+      if (titleEl) titleEl.innerText = title;
+    }
+
+    const text = state.text ?? '';
+    if (text !== lastText) {
+      lastText = text;
+      const textEl = document.getElementById('presentation-text');
+      const container = document.getElementById('presentation');
+      if (textEl) textEl.innerText = text;
+      if (container) container.classList.toggle('has-text', text.trim().length > 0);
+    }
+  };
+
+  await refresh();
+  // La ventana de presentación lee el estado compartido periódicamente.
+  setInterval(refresh, 300);
+}
+
+async function bootstrap() {
+  // Wails inyecta los bindings al cargar; reintentamos brevemente por si el
+  // runtime aún no está listo (importante para no abrir la UI de control en la
+  // ventana de presentación).
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      presentationMode = !!(await GetPresentationMode());
+      break;
+    } catch (e) {
+      presentationMode = false;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  if (presentationMode) {
+    await startPresentationMode();
+    return;
+  }
+
+  buildControlUI();
+  await init();
+}
+
+bootstrap();

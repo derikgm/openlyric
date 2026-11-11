@@ -3,3 +3,8 @@ bin
 node_modules
 frontend/dist
 openlyric
+openlyric-config.json
+openlyric-presentation.json
+openlyric-presentation.json.tmp
+openlyric-presentation-bg.txt
+openlyric-presentation-bg.txt.tmp

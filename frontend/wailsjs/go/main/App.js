@@ -6,8 +6,24 @@ export function CreateSong(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateSong'](arg1, arg2, arg3);
 }
 
+export function EnsurePresentation() {
+  return window['go']['main']['App']['EnsurePresentation']();
+}
+
 export function GetBackground() {
   return window['go']['main']['App']['GetBackground']();
+}
+
+export function GetPresentationBackground() {
+  return window['go']['main']['App']['GetPresentationBackground']();
+}
+
+export function GetPresentationMode() {
+  return window['go']['main']['App']['GetPresentationMode']();
+}
+
+export function GetPresentationState() {
+  return window['go']['main']['App']['GetPresentationState']();
 }
 
 export function GetScreens() {
@@ -48,4 +64,12 @@ export function SetBackground(arg1) {
 
 export function SetBackgroundFromFile(arg1) {
   return window['go']['main']['App']['SetBackgroundFromFile'](arg1);
+}
+
+export function UpdatePresentation(arg1, arg2) {
+  return window['go']['main']['App']['UpdatePresentation'](arg1, arg2);
+}
+
+export function UpdatePresentationBackground(arg1) {
+  return window['go']['main']['App']['UpdatePresentationBackground'](arg1);
 }

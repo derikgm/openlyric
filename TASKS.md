@@ -26,7 +26,7 @@
 - [x] Liricas: lista de canciones y bloques numerados, cambio rápido de bloque al hacer clic ✅
 - [x] Biblia: selector de versión, libros, capítulos y versículos en grande ✅
 - [x] Opciones: fondo, idioma (ES/EN) y donaciones ✅
-- [x] Avance automático de versos/bloques ✅
+- [x] Auto-avance de versos/bloques ⚠️ (eliminado: se prefirió navegación manual)
 - [x] Navegación con teclado (← / →) ✅
 - [x] Pantalla completa ✅
 - [x] Seleccionar fondo ✅
@@ -43,7 +43,8 @@
 
 ## Fase 4: Controlador y monitores
 - [x] Detectar monitores ✅ (backend `GetScreens` + UI que lista monitores)
-- [x] Abrir visor en segundo monitor ✅ (backend posiciona la ventana en el monitor no principal)
+- [x] Abrir visor en segundo monitor ✅ (proceso de presentación independiente, fullscreen en el monitor no principal)
+- [x] Ventana de presentación separada del control ✅ (la UI de control permanece en el monitor principal)
 - [x] Controles del controlador ✅ (botones: verso anterior / siguiente verso)
 
 ## Fase 5: Build y release
@@ -59,6 +60,7 @@
 - [x] Validación de segundo monitor al arranque ✅ (mensaje de advertencia si no hay segundo monitor conectado, sin bloquear acceso a la app)
 - [x] Botón "Reintentar detección" en el cartel de advertencia ✅
 - [x] Análisis y corrección de bugs de UI ✅ (Biblia, fondos, opciones a pantalla completa, doble listener de teclado, i18n dinámica)
+- [x] Ventana de presentación separada ✅ (control en monitor principal; proyección fullscreen en segundo monitor)
 - [x] Persistencia, responsive e i18n ES/EN ✅
 - [x] Tests unitarios Go ✅
 

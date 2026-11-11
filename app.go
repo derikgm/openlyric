@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -15,28 +17,37 @@ import (
 
 // App struct
 type App struct {
-	ctx            context.Context
-	songsDir       string
-	biblesDir      string
-	backgroundsDir string
-	background     string
-	bibles         []*BibleVersion
-	biblesMap      map[string]*BibleVersion
-	configFile     string
+	ctx                   context.Context
+	songsDir              string
+	biblesDir             string
+	backgroundsDir        string
+	background            string
+	bibles                []*BibleVersion
+	biblesMap             map[string]*BibleVersion
+	configFile            string
+	presentation          bool
+	presentationCmd       *exec.Cmd
+	presentationMu        sync.Mutex
+	presentationStateFile string
+	presentationBgFile    string
 }
 
-// NewApp creates a new App application struct
-func NewApp() *App {
+// NewApp creates a new App application struct.
+// When presentation is true the app runs as the read-only projection window.
+func NewApp(presentation bool) *App {
 	return &App{
-		bibles:         []*BibleVersion{},
-		biblesMap:      map[string]*BibleVersion{},
-		backgroundsDir: "backgrounds",
-		configFile:     "openlyric-config.json",
+		bibles:                []*BibleVersion{},
+		biblesMap:             map[string]*BibleVersion{},
+		backgroundsDir:        "backgrounds",
+		configFile:            "openlyric-config.json",
+		presentation:          presentation,
+		presentationStateFile: "openlyric-presentation.json",
+		presentationBgFile:    "openlyric-presentation-bg.txt",
 	}
 }
 
 // startup is called when the app starts. The context is saved
-// so we can call the runtime methods
+// so we can call the runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.songsDir = "songs"
@@ -47,6 +58,13 @@ func (a *App) startup(ctx context.Context) {
 	// Load the persisted background (if any).
 	if err := a.loadConfig(); err != nil {
 		println("Error loading config:", err.Error())
+	}
+
+	// Presentation window: only place it on the second monitor. It does not
+	// load songs/bibles nor spawn another presentation window.
+	if a.presentation {
+		a.openViewerOnSecondMonitor(ctx)
+		return
 	}
 
 	// Ensure the songs, bibles and backgrounds folders exist so users can add content later on.
@@ -60,8 +78,13 @@ func (a *App) startup(ctx context.Context) {
 		println("Error creating backgrounds folder:", err.Error())
 	}
 
-	// Open the lyrics viewer on the second monitor when one is available.
-	a.openViewerOnSecondMonitor(ctx)
+	// Clear stale projection state from a previous run. The frontend writes the
+	// current state (and background) as soon as it finishes loading.
+	_ = os.Remove(a.presentationStateFile)
+	_ = os.Remove(a.presentationBgFile)
+
+	// Open the presentation window on the second monitor when available.
+	a.ensurePresentationWindow()
 }
 
 // loadConfig reads the persisted background from the config file.
@@ -98,7 +121,7 @@ func (a *App) saveConfig() error {
 	return os.WriteFile(a.configFile, data, 0644)
 }
 
-// openViewerOnSecondMonitor positions the window on the first
+// openViewerOnSecondMonitor positions the presentation window on the first
 // non-primary screen (the second monitor) when more than one exists.
 func (a *App) openViewerOnSecondMonitor(ctx context.Context) {
 	screens, err := runtime.ScreenGetAll(ctx)
@@ -130,6 +153,168 @@ func (a *App) openViewerOnSecondMonitor(ctx context.Context) {
 
 	runtime.WindowSetSize(ctx, target.Size.Width, target.Size.Height)
 	runtime.WindowSetPosition(ctx, screens[primaryIndex].Size.Width, 0)
+}
+
+// PresentationState is the content currently shown in the projection window.
+// The background is kept in a separate file because it can be several MB and
+// should not be rewritten on every lyric/verse change.
+type PresentationState struct {
+	Title             string `json:"title"`
+	Text              string `json:"text"`
+	BackgroundVersion int64  `json:"backgroundVersion"`
+}
+
+// presentationFlag is passed to the child process that renders the projection.
+const presentationFlag = "--presentation"
+
+// ensurePresentationWindow starts a second process that renders the projection
+// window when a second monitor is available. Wails v2 has no multi-window API,
+// so the projection runs in its own process and reads the shared state file.
+func (a *App) ensurePresentationWindow() {
+	if a.presentation {
+		return
+	}
+
+	a.presentationMu.Lock()
+	defer a.presentationMu.Unlock()
+
+	if a.presentationCmd != nil {
+		return
+	}
+
+	screens, err := runtime.ScreenGetAll(a.ctx)
+	if err != nil || len(screens) < 2 {
+		return
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		println("Error locating executable:", err.Error())
+		return
+	}
+
+	cmd := exec.Command(executable, presentationFlag)
+	cmd.Env = append(os.Environ(), "OPENLYRIC_PRESENTATION=1")
+	if err := cmd.Start(); err != nil {
+		println("Error starting presentation window:", err.Error())
+		return
+	}
+
+	a.presentationCmd = cmd
+	go func(c *exec.Cmd) {
+		_ = c.Wait()
+		a.presentationMu.Lock()
+		if a.presentationCmd == c {
+			a.presentationCmd = nil
+		}
+		a.presentationMu.Unlock()
+	}(cmd)
+}
+
+// EnsurePresentation checks for a second monitor and starts the presentation
+// process if it is not running yet. It is used by the "Retry detection" button.
+func (a *App) EnsurePresentation() (bool, error) {
+	if a.presentation {
+		return true, nil
+	}
+
+	screens, err := runtime.ScreenGetAll(a.ctx)
+	if err != nil {
+		return false, err
+	}
+	if len(screens) < 2 {
+		return false, nil
+	}
+
+	a.ensurePresentationWindow()
+	return true, nil
+}
+
+// shutdown stops the presentation process when the control window closes.
+func (a *App) shutdown(ctx context.Context) {
+	a.presentationMu.Lock()
+	cmd := a.presentationCmd
+	a.presentationCmd = nil
+	a.presentationMu.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+}
+
+// GetPresentationMode tells the frontend whether this process is the projection window.
+func (a *App) GetPresentationMode() bool {
+	return a.presentation
+}
+
+// UpdatePresentation stores the current text to project. It is intentionally
+// small so it can be written on every lyric/verse change.
+func (a *App) UpdatePresentation(title string, text string) error {
+	state := PresentationState{
+		Title: title,
+		Text:  text,
+	}
+
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	tmpFile := a.presentationStateFile + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpFile, a.presentationStateFile)
+}
+
+// UpdatePresentationBackground stores the projection background. It is only
+// called when the background changes.
+func (a *App) UpdatePresentationBackground(background string) error {
+	tmpFile := a.presentationBgFile + ".tmp"
+	if err := os.WriteFile(tmpFile, []byte(background), 0644); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpFile, a.presentationBgFile)
+}
+
+// GetPresentationState returns the latest content written by the control window.
+// BackgroundVersion changes whenever the background file is rewritten.
+func (a *App) GetPresentationState() (PresentationState, error) {
+	state := PresentationState{}
+
+	data, err := os.ReadFile(a.presentationStateFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return state, err
+		}
+	} else if err := json.Unmarshal(data, &state); err != nil {
+		return state, err
+	}
+
+	if info, err := os.Stat(a.presentationBgFile); err == nil {
+		state.BackgroundVersion = info.ModTime().UnixNano()
+	}
+
+	return state, nil
+}
+
+// GetPresentationBackground returns the data URL currently used as background.
+func (a *App) GetPresentationBackground() (string, error) {
+	data, err := os.ReadFile(a.presentationBgFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return a.background, nil
+		}
+		return "", err
+	}
+
+	if len(data) == 0 {
+		return "", nil
+	}
+
+	return string(data), nil
 }
 
 // Greet returns a greeting for the given name

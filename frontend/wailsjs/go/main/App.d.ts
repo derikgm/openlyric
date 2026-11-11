@@ -5,7 +5,15 @@ import {frontend} from '../models';
 
 export function CreateSong(arg1:string,arg2:string,arg3:string):Promise<main.Song>;
 
+export function EnsurePresentation():Promise<boolean>;
+
 export function GetBackground():Promise<string>;
+
+export function GetPresentationBackground():Promise<string>;
+
+export function GetPresentationMode():Promise<boolean>;
+
+export function GetPresentationState():Promise<main.PresentationState>;
 
 export function GetScreens():Promise<Array<frontend.Screen>>;
 
@@ -26,3 +34,7 @@ export function OpenDonationPage():Promise<void>;
 export function SetBackground(arg1:string):Promise<void>;
 
 export function SetBackgroundFromFile(arg1:string):Promise<string>;
+
+export function UpdatePresentation(arg1:string,arg2:string):Promise<void>;
+
+export function UpdatePresentationBackground(arg1:string):Promise<void>;

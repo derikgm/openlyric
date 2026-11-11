@@ -99,3 +99,49 @@ func TestLoadBibleSongsNotFound(t *testing.T) {
 		t.Fatal("expected empty song list for missing version")
 	}
 }
+
+func TestPresentationStateRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	app := NewApp(false)
+	app.presentationStateFile = filepath.Join(dir, "presentation.json")
+	app.presentationBgFile = filepath.Join(dir, "presentation-bg.txt")
+	app.background = "data:image/png;base64,AAAA"
+
+	if err := app.UpdatePresentation("Génesis 1", "En el principio creó Dios los cielos y la tierra."); err != nil {
+		t.Fatalf("UpdatePresentation: %v", err)
+	}
+
+	state, err := app.GetPresentationState()
+	if err != nil {
+		t.Fatalf("GetPresentationState: %v", err)
+	}
+	if state.Title != "Génesis 1" {
+		t.Fatalf("unexpected title: %q", state.Title)
+	}
+	if state.Text == "" {
+		t.Fatal("expected text")
+	}
+	if state.BackgroundVersion != 0 {
+		t.Fatal("expected no background version before writing the background")
+	}
+
+	if err := app.UpdatePresentationBackground("data:image/png;base64,BBBB"); err != nil {
+		t.Fatalf("UpdatePresentationBackground: %v", err)
+	}
+
+	state, err = app.GetPresentationState()
+	if err != nil {
+		t.Fatalf("GetPresentationState after background: %v", err)
+	}
+	if state.BackgroundVersion == 0 {
+		t.Fatal("expected a background version after writing the background")
+	}
+
+	background, err := app.GetPresentationBackground()
+	if err != nil {
+		t.Fatalf("GetPresentationBackground: %v", err)
+	}
+	if background != "data:image/png;base64,BBBB" {
+		t.Fatalf("unexpected background: %q", background)
+	}
+}

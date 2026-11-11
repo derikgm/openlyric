@@ -195,6 +195,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class PresentationState {
+	    title: string;
+	    text: string;
+	    backgroundVersion: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PresentationState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.text = source["text"];
+	        this.backgroundVersion = source["backgroundVersion"];
+	    }
+	}
 	export class Song {
 	    id: string;
 	    title: string;
