@@ -17,6 +17,10 @@ import {
   GetPresentationBackground,
   UpdatePresentation,
   UpdatePresentationBackground,
+  LoadCatalog,
+  SaveCatalog,
+  ExportCatalog,
+  ImportCatalog,
 } from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
@@ -30,6 +34,10 @@ let currentTab = 'lyricas'; // 'lyricas' | 'biblia' | 'opciones'
 let currentSongIndex = 0;
 let currentBlockIndex = 0;
 let blocks = [];
+let selectedSong = null;
+
+// Catálogo (lista de canciones preparadas para proyectar)
+let catalog = { name: '', songs: [] };
 
 // Fondos (galería de imágenes)
 let backgrounds = [];
@@ -83,6 +91,18 @@ const i18n = {
     blocks: 'Bloques',
     noBlocks: 'Sin bloques.',
     blockShort: 'Bloque',
+    catalogTitle: 'Catálogo',
+    catalogEmpty: 'Añade canciones con el botón + para preparar tu lista.',
+    addToCatalog: 'Añadir al catálogo',
+    alreadyInCatalog: 'Ya está en el catálogo',
+    removeFromCatalog: 'Quitar del catálogo',
+    moveUp: 'Subir',
+    moveDown: 'Bajar',
+    importCatalog: 'Importar',
+    exportCatalog: 'Exportar',
+    catalogImported: 'Catálogo importado.',
+    catalogExported: 'Catálogo exportado.',
+    errorCatalog: 'Error al guardar el catálogo.',
     prevBlock: '← Bloque anterior',
     nextBlock: 'Siguiente bloque →',
     versions: 'Versiones de la Biblia',
@@ -140,6 +160,18 @@ const i18n = {
     blocks: 'Blocks',
     noBlocks: 'No blocks.',
     blockShort: 'Block',
+    catalogTitle: 'Catalog',
+    catalogEmpty: 'Add songs with the + button to prepare your list.',
+    addToCatalog: 'Add to catalog',
+    alreadyInCatalog: 'Already in catalog',
+    removeFromCatalog: 'Remove from catalog',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    importCatalog: 'Import',
+    exportCatalog: 'Export',
+    catalogImported: 'Catalog imported.',
+    catalogExported: 'Catalog exported.',
+    errorCatalog: 'Error saving the catalog.',
     prevBlock: '← Previous block',
     nextBlock: 'Next block →',
     versions: 'Bible versions',
@@ -204,6 +236,9 @@ function applyI18n() {
   document.getElementById('lyricas-new-cancel').innerText = t('cancel');
   document.getElementById('lyricas-prev-block').innerText = t('prevBlock');
   document.getElementById('lyricas-next-block').innerText = t('nextBlock');
+  document.getElementById('lyricas-catalog-title').innerText = t('catalogTitle');
+  document.getElementById('lyricas-catalog-import').innerText = t('importCatalog');
+  document.getElementById('lyricas-catalog-export').innerText = t('exportCatalog');
 
   // Biblia
   document.getElementById('biblia-version-label').innerText = t('version');
@@ -237,6 +272,173 @@ function splitBlocks(lyrics) {
     .map((b) => b.trim())
     .filter((b) => b.length > 0);
   return blocks.length > 0 ? blocks : [String(lyrics ?? '')];
+}
+
+// ---------- Catálogo ----------
+function normalizeCatalogSong(item) {
+  return {
+    id: item?.id ?? '',
+    title: item?.title ?? '',
+    artist: item?.artist ?? '',
+    lyrics: item?.lyrics ?? '',
+    background: item?.background ?? '',
+    verseNumbers: Array.isArray(item?.verseNumbers) ? item.verseNumbers : [],
+  };
+}
+
+function normalizeCatalog(value) {
+  const songs = Array.isArray(value?.songs) ? value.songs.filter(Boolean).map(normalizeCatalogSong) : [];
+  return {
+    name: String(value?.name ?? '').trim() || t('catalogTitle'),
+    songs,
+  };
+}
+
+function setCatalogStatus(text) {
+  const statusEl = document.getElementById('lyricas-catalog-status');
+  if (statusEl) statusEl.innerText = text;
+}
+
+async function persistCatalog() {
+  try {
+    await SaveCatalog(catalog);
+  } catch (e) {
+    setCatalogStatus(t('errorCatalog'));
+  }
+}
+
+function isSongInCatalog(song) {
+  return !!song && catalog.songs.some((item) => item.id && item.id === song.id);
+}
+
+async function addSongToCatalog(index) {
+  const song = songs[index];
+  if (!song || isSongInCatalog(song)) return;
+
+  catalog.songs.push(normalizeCatalogSong(song));
+  await persistCatalog();
+  renderLyricas();
+}
+
+async function removeCatalogSong(index) {
+  if (index < 0 || index >= catalog.songs.length) return;
+
+  catalog.songs.splice(index, 1);
+  await persistCatalog();
+  renderLyricas();
+}
+
+async function moveCatalogSong(index, delta) {
+  const target = index + delta;
+  if (index < 0 || index >= catalog.songs.length || target < 0 || target >= catalog.songs.length) {
+    return;
+  }
+
+  const [item] = catalog.songs.splice(index, 1);
+  catalog.songs.splice(target, 0, item);
+  await persistCatalog();
+  renderLyricas();
+}
+
+function selectCatalogSong(index) {
+  const item = catalog.songs[index];
+  if (!item) return;
+
+  const existingIndex = songs.findIndex((song) => song.id === item.id);
+  currentSongIndex = existingIndex;
+  selectedSong = existingIndex >= 0 ? songs[existingIndex] : item;
+  currentBlockIndex = 0;
+  renderLyricas();
+}
+
+async function importCatalog() {
+  try {
+    const imported = await ImportCatalog();
+    if (!imported) return;
+
+    catalog = normalizeCatalog(imported);
+    setCatalogStatus(t('catalogImported'));
+    renderLyricas();
+  } catch (e) {
+    setCatalogStatus(t('errorCatalog'));
+  }
+}
+
+async function exportCatalog() {
+  try {
+    const path = await ExportCatalog(catalog);
+    if (path) setCatalogStatus(t('catalogExported'));
+  } catch (e) {
+    setCatalogStatus(t('errorCatalog'));
+  }
+}
+
+function renderCatalog() {
+  const listEl = document.getElementById('lyricas-catalog-list');
+  if (!listEl) return;
+
+  listEl.innerHTML = '';
+
+  if (catalog.songs.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint';
+    empty.innerText = t('catalogEmpty');
+    listEl.appendChild(empty);
+    return;
+  }
+
+  catalog.songs.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = 'catalog-item' + (selectedSong && selectedSong.id === item.id ? ' active' : '');
+
+    const selectBtn = document.createElement('button');
+    selectBtn.type = 'button';
+    selectBtn.className = 'catalog-item-select';
+    selectBtn.innerText = item.title || item.id || t('catalogTitle');
+    selectBtn.addEventListener('click', () => selectCatalogSong(index));
+    row.appendChild(selectBtn);
+
+    const actions = document.createElement('div');
+    actions.className = 'catalog-item-actions';
+
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'catalog-icon';
+    up.innerText = '↑';
+    up.title = t('moveUp');
+    up.disabled = index === 0;
+    up.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveCatalogSong(index, -1);
+    });
+    actions.appendChild(up);
+
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.className = 'catalog-icon';
+    down.innerText = '↓';
+    down.title = t('moveDown');
+    down.disabled = index === catalog.songs.length - 1;
+    down.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveCatalogSong(index, 1);
+    });
+    actions.appendChild(down);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'catalog-icon catalog-remove';
+    remove.innerText = '×';
+    remove.title = t('removeFromCatalog');
+    remove.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeCatalogSong(index);
+    });
+    actions.appendChild(remove);
+
+    row.appendChild(actions);
+    listEl.appendChild(row);
+  });
 }
 
 // ---------- Presentación ----------
@@ -301,7 +503,7 @@ function renderLyricas() {
   const titleEl = document.getElementById('lyricas-song-title');
   const controlsEl = document.getElementById('lyricas-controls');
 
-  const song = songs[currentSongIndex];
+  const song = selectedSong;
 
   // Lista de canciones
   songListEl.innerHTML = '';
@@ -317,11 +519,31 @@ function renderLyricas() {
     songListEl.appendChild(empty);
   } else {
     for (let i = 0; i < songs.length; i++) {
+      const songItem = songs[i];
+      const inCatalog = isSongInCatalog(songItem);
+
       const item = document.createElement('div');
-      item.className = 'lyricas-item' + (i === currentSongIndex ? ' active' : '');
-      item.innerText = songs[i].title ?? '';
+      item.className = 'lyricas-item' + (selectedSong && selectedSong.id === songItem.id ? ' active' : '');
       item.dataset.index = String(i);
       item.addEventListener('click', () => selectLyricasSong(Number(item.dataset.index)));
+
+      const label = document.createElement('span');
+      label.className = 'song-label';
+      label.innerText = songItem.title ?? '';
+      item.appendChild(label);
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'catalog-add';
+      addBtn.innerText = inCatalog ? '✓' : '+';
+      addBtn.title = inCatalog ? t('alreadyInCatalog') : t('addToCatalog');
+      addBtn.disabled = inCatalog;
+      addBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        addSongToCatalog(i);
+      });
+      item.appendChild(addBtn);
+
       songListEl.appendChild(item);
     }
   }
@@ -383,11 +605,14 @@ function renderLyricas() {
     song ? song.title ?? '' : '',
     song && blocks.length > 0 ? blocks[currentBlockIndex] ?? '' : ''
   );
+
+  renderCatalog();
 }
 
 function selectLyricasSong(index) {
   if (songs.length === 0) return;
-  currentSongIndex = index;
+  selectedSong = songs[index] ?? null;
+  currentSongIndex = selectedSong ? index : -1;
   currentBlockIndex = 0;
   renderLyricas();
 }
@@ -767,6 +992,16 @@ async function init() {
     songs = [];
   }
 
+  selectedSong = songs[0] ?? null;
+  currentSongIndex = selectedSong ? 0 : -1;
+
+  // Cargar catálogo guardado
+  try {
+    catalog = normalizeCatalog(await LoadCatalog());
+  } catch (e) {
+    catalog = normalizeCatalog(null);
+  }
+
   // Cargar fondos (galería de imágenes)
   try {
     await loadBackgrounds();
@@ -795,6 +1030,10 @@ async function init() {
     applyI18n();
     render();
   });
+
+  // Catálogo
+  document.getElementById('lyricas-catalog-import').addEventListener('click', importCatalog);
+  document.getElementById('lyricas-catalog-export').addEventListener('click', exportCatalog);
 
   // Fondo (archivo local)
   document.getElementById('opciones-background').addEventListener('change', (e) => {
@@ -871,7 +1110,8 @@ async function init() {
       songs = (await LoadSongs()) ?? [];
 
       const createdIndex = songs.findIndex((s) => s.id === created.id);
-      currentSongIndex = createdIndex >= 0 ? createdIndex : Math.max(0, songs.length - 1);
+      selectedSong = createdIndex >= 0 ? songs[createdIndex] : created;
+      currentSongIndex = createdIndex;
       currentBlockIndex = 0;
 
       document.getElementById('lyricas-new-song-form').style.display = 'none';
@@ -988,6 +1228,17 @@ function buildControlUI() {
           <button id="lyricas-next-block">${t('nextBlock')}</button>
         </div>
       </main>
+      <aside id="lyricas-catalog">
+        <div class="catalog-header">
+          <h3 id="lyricas-catalog-title">${t('catalogTitle')}</h3>
+          <div class="catalog-header-actions">
+            <button id="lyricas-catalog-import" class="mini-button" type="button">${t('importCatalog')}</button>
+            <button id="lyricas-catalog-export" class="mini-button" type="button">${t('exportCatalog')}</button>
+          </div>
+        </div>
+        <div id="lyricas-catalog-list"></div>
+        <div id="lyricas-catalog-status" class="status-line"></div>
+      </aside>
     </section>
 
     <section id="view-biblia" class="view" style="display:none;">

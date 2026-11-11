@@ -178,6 +178,44 @@
     white-space: nowrap;
 }
 
+.lyricas-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lyricas-item .song-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catalog-add {
+    flex: 0 0 auto;
+    width: 1.7rem;
+    height: 1.7rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.catalog-add:hover:not(:disabled) {
+    background: rgba(0, 150, 255, 0.35);
+    border-color: rgba(0, 150, 255, 0.7);
+}
+
+.catalog-add:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
 .lyricas-item:hover,
 .lyricas-block:hover,
 .lyricas-bg-item:hover {
@@ -331,6 +369,127 @@
 #biblia-verses .lyricas-block {
     margin-bottom: 0;
     white-space: normal;
+}
+
+/* ---------- Catálogo (sidebar derecha en Liricas) ---------- */
+#lyricas-catalog {
+    width: 300px;
+    max-width: 28vw;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.82);
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.catalog-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.catalog-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.catalog-header-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.mini-button {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    cursor: pointer;
+}
+
+.mini-button:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+#lyricas-catalog-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.catalog-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem;
+    margin-bottom: 0.35rem;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.catalog-item.active {
+    background: rgba(0, 150, 255, 0.25);
+    border-color: rgba(0, 150, 255, 0.6);
+}
+
+.catalog-item-select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.35rem 0.4rem;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: white;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catalog-item-select:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.catalog-item-actions {
+    display: flex;
+    gap: 0.2rem;
+    flex: 0 0 auto;
+}
+
+.catalog-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.catalog-icon:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.catalog-icon:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.catalog-remove:hover:not(:disabled) {
+    background: rgba(200, 60, 60, 0.45);
+    border-color: rgba(220, 80, 80, 0.7);
 }
 
 /* ---------- Opciones (pantalla completa) ---------- */
@@ -558,6 +717,11 @@ body.presentation-mode #app {
         max-width: 55vw;
         padding: 0.75rem;
     }
+    #lyricas-catalog {
+        width: 220px;
+        max-width: 35vw;
+        padding: 0.75rem;
+    }
     #lyricas-main,
     #biblia-main {
         padding: 1rem;
@@ -590,6 +754,11 @@ body.presentation-mode #app {
     #biblia-sidebar {
         width: 220px;
         max-width: 70vw;
+        padding: 0.6rem;
+    }
+    #lyricas-catalog {
+        width: 180px;
+        max-width: 45vw;
         padding: 0.6rem;
     }
     #lyricas-block-display {

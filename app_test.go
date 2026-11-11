@@ -179,3 +179,69 @@ func TestBundledExampleSongHasFourBlocks(t *testing.T) {
 		t.Fatalf("expected 4 blocks, got %d", len(blocks))
 	}
 }
+
+func TestCatalogRoundTrip(t *testing.T) {
+	app := NewApp(false)
+	app.catalogFile = filepath.Join(t.TempDir(), "catalog.json")
+
+	catalog := Catalog{
+		Name: "Culto del domingo",
+		Songs: []*Song{
+			{ID: "sublime-gracia.txt", Title: "Sublime gracia", Artist: "John Newton", Lyrics: "Estrofa uno.\n\nEstrofa dos."},
+			{ID: "otra.txt", Title: "Otra canción", Lyrics: "Letra."},
+		},
+	}
+
+	if err := app.SaveCatalog(catalog); err != nil {
+		t.Fatalf("SaveCatalog: %v", err)
+	}
+
+	loaded, err := app.LoadCatalog()
+	if err != nil {
+		t.Fatalf("LoadCatalog: %v", err)
+	}
+	if loaded.Name != catalog.Name {
+		t.Fatalf("unexpected catalog name: %q", loaded.Name)
+	}
+	if len(loaded.Songs) != 2 {
+		t.Fatalf("expected 2 songs, got %d", len(loaded.Songs))
+	}
+	if loaded.Songs[0].ID != "sublime-gracia.txt" || loaded.Songs[0].Lyrics != "Estrofa uno.\n\nEstrofa dos." {
+		t.Fatalf("unexpected first catalog song: %+v", loaded.Songs[0])
+	}
+}
+
+func TestLoadCatalogMissingFile(t *testing.T) {
+	app := NewApp(false)
+	app.catalogFile = filepath.Join(t.TempDir(), "does-not-exist.json")
+
+	catalog, err := app.LoadCatalog()
+	if err != nil {
+		t.Fatalf("LoadCatalog: %v", err)
+	}
+	if catalog.Name == "" {
+		t.Fatal("expected a default catalog name")
+	}
+	if len(catalog.Songs) != 0 {
+		t.Fatalf("expected an empty catalog, got %d songs", len(catalog.Songs))
+	}
+}
+
+func TestReadCatalogFileRejectsInvalidJSON(t *testing.T) {
+	path := writeTempSongFile(t, "catalog.json", "{not valid json")
+
+	if _, err := readCatalogFile(path); err == nil {
+		t.Fatal("expected an error for invalid catalog JSON")
+	}
+}
+
+func TestNormalizeCatalogDropsNilSongs(t *testing.T) {
+	catalog := normalizeCatalog(&Catalog{Songs: []*Song{nil, {Title: "Canción"}}})
+
+	if catalog.Name == "" {
+		t.Fatal("expected a default catalog name")
+	}
+	if len(catalog.Songs) != 1 {
+		t.Fatalf("expected 1 song, got %d", len(catalog.Songs))
+	}
+}

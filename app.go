@@ -30,6 +30,7 @@ type App struct {
 	presentationMu        sync.Mutex
 	presentationStateFile string
 	presentationBgFile    string
+	catalogFile           string
 }
 
 // NewApp creates a new App application struct.
@@ -43,6 +44,7 @@ func NewApp(presentation bool) *App {
 		presentation:          presentation,
 		presentationStateFile: "openlyric-presentation.json",
 		presentationBgFile:    "openlyric-presentation-bg.txt",
+		catalogFile:           "openlyric-catalog.json",
 	}
 }
 
@@ -507,6 +509,125 @@ func (a *App) SetBackground(background string) error {
 // GetBackground returns the background image (data URL) persisted by the user.
 func (a *App) GetBackground() string {
 	return a.background
+}
+
+// Catalog is a saved set of songs prepared for a service or event.
+type Catalog struct {
+	Name  string  `json:"name"`
+	Songs []*Song `json:"songs"`
+}
+
+// LoadCatalog reads the local catalog. A missing file yields an empty catalog.
+func (a *App) LoadCatalog() (*Catalog, error) {
+	catalog, err := readCatalogFile(a.catalogFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Catalog{Name: "Catálogo", Songs: []*Song{}}, nil
+		}
+		return nil, err
+	}
+	return catalog, nil
+}
+
+// SaveCatalog persists the catalog so it is available on the next launch.
+func (a *App) SaveCatalog(catalog Catalog) error {
+	return writeCatalogFile(a.catalogFile, &catalog)
+}
+
+// ExportCatalog asks for a destination file and writes a portable copy of the
+// catalog, including the lyrics, so it can be imported on another computer.
+func (a *App) ExportCatalog(catalog Catalog) (string, error) {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Exportar catálogo",
+		DefaultFilename: "catalogo-openlyric.json",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Catálogo OpenLyric (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", nil
+	}
+
+	if err := writeCatalogFile(path, &catalog); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// ImportCatalog asks for a catalog file, validates it, persists it as the local
+// catalog and returns it. A cancelled dialog returns (nil, nil).
+func (a *App) ImportCatalog() (*Catalog, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Importar catálogo",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Catálogo OpenLyric (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if path == "" {
+		return nil, nil
+	}
+
+	catalog, err := readCatalogFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeCatalogFile(a.catalogFile, catalog); err != nil {
+		return nil, err
+	}
+	return catalog, nil
+}
+
+func normalizeCatalog(catalog *Catalog) *Catalog {
+	if catalog == nil {
+		catalog = &Catalog{}
+	}
+	if strings.TrimSpace(catalog.Name) == "" {
+		catalog.Name = "Catálogo"
+	}
+
+	songs := make([]*Song, 0, len(catalog.Songs))
+	for _, song := range catalog.Songs {
+		if song != nil {
+			songs = append(songs, song)
+		}
+	}
+	catalog.Songs = songs
+
+	return catalog
+}
+
+func readCatalogFile(path string) (*Catalog, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	catalog := &Catalog{}
+	if err := json.Unmarshal(data, catalog); err != nil {
+		return nil, fmt.Errorf("invalid catalog file: %w", err)
+	}
+
+	return normalizeCatalog(catalog), nil
+}
+
+func writeCatalogFile(path string, catalog *Catalog) error {
+	data, err := json.MarshalIndent(normalizeCatalog(catalog), "", "  ")
+	if err != nil {
+		return err
+	}
+
+	tmpFile := path + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpFile, path)
 }
 
 // LoadBackgrounds returns the list of image files available in the backgrounds directory.

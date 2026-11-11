@@ -33,6 +33,7 @@
 - [x] Mostrar versos numerados de la Biblia ✅
 - [x] Panel lateral con lista de canciones/libros/capítulos ✅
 - [x] Formulario para crear una nueva canción desde la app ✅
+- [x] Catálogo de canciones (setlist): sidebar derecho, añadir/quitar, reordenar, autoguardado e importar/exportar ✅
 - [x] Transición de fade entre bloques/versos ✅
 - [x] Contador de verso actual ✅
 - [x] Overlay semitransparente para legibilidad ✅

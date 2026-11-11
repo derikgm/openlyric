@@ -10,6 +10,10 @@ export function EnsurePresentation() {
   return window['go']['main']['App']['EnsurePresentation']();
 }
 
+export function ExportCatalog(arg1) {
+  return window['go']['main']['App']['ExportCatalog'](arg1);
+}
+
 export function GetBackground() {
   return window['go']['main']['App']['GetBackground']();
 }
@@ -38,6 +42,10 @@ export function HasSecondMonitor() {
   return window['go']['main']['App']['HasSecondMonitor']();
 }
 
+export function ImportCatalog() {
+  return window['go']['main']['App']['ImportCatalog']();
+}
+
 export function LoadBackgrounds() {
   return window['go']['main']['App']['LoadBackgrounds']();
 }
@@ -50,12 +58,20 @@ export function LoadBibleVersions() {
   return window['go']['main']['App']['LoadBibleVersions']();
 }
 
+export function LoadCatalog() {
+  return window['go']['main']['App']['LoadCatalog']();
+}
+
 export function LoadSongs() {
   return window['go']['main']['App']['LoadSongs']();
 }
 
 export function OpenDonationPage() {
   return window['go']['main']['App']['OpenDonationPage']();
+}
+
+export function SaveCatalog(arg1) {
+  return window['go']['main']['App']['SaveCatalog'](arg1);
 }
 
 export function SetBackground(arg1) {

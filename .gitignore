@@ -4,6 +4,8 @@ node_modules
 frontend/dist
 openlyric
 openlyric-config.json
+openlyric-catalog.json
+openlyric-catalog.json.tmp
 openlyric-presentation.json
 openlyric-presentation.json.tmp
 openlyric-presentation-bg.txt

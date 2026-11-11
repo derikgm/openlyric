@@ -7,7 +7,7 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 - **Ventana de presentación separada**: la interfaz de control se queda en el monitor principal y una segunda ventana fullscreen muestra solo la letra/versículo/fondo en el segundo monitor. La presentación se sincroniza automáticamente con lo que selecciones en el control.
 - Detección de monitores disponibles (`runtime.ScreenGetAll`).
 - Navegación por pestañas superiores: **Liricas**, **Biblia** y **Opciones**.
-- **Liricas**: lista de canciones, bloques numerados de letra, cambio rápido de bloque al hacer clic (ideal para coros y repeticiones), teclado (← / →).
+- **Liricas**: lista de canciones, bloques numerados de letra, cambio rápido de bloque al hacer clic (ideal para coros y repeticiones), teclado (← / →) y **catálogo** lateral para preparar la lista de canciones a proyectar.
 - **Biblia**: cargar versiones JSON (p. ej. Reina-Valera 1909), seleccionar libro/capítulo y mostrar versículos en grande.
 - **Opciones**: pantalla completa con tarjetas de fondo, idioma (ES/EN) y donaciones.
 - Selección de fondo mediante imagen (`data URL`) con persistencia.
@@ -15,8 +15,9 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 - Carga de canciones desde `songs/` en formatos `.txt`, `.xml` y `.json`.
 - Carga de versiones de la Biblia desde `bibles/` en formato JSON.
 - Creación automática de las carpetas `songs/`, `bibles/` y `backgrounds/` si no existen.
-- Validación de segundo monitor al arrancar: si no hay segundo monitor conectado, se muestra un cartel flotante sobre el área de proyección de Liricas y Biblia (sin achicar el sidebar ni bloquear el acceso a Opciones o a crear canciones), con botón "Reintentar detección"
+- Validación de segundo monitor al arrancar: si no hay segundo monitor conectado, se muestra un cartel flotante sobre el área de proyección de Liricas y Biblia (sin achicar el sidebar ni bloquear el acceso a Opciones o a crear canciones), con botón "Reintentar detección" y apertura manual desde Opciones.
 - Creación de canciones con letra desde la app.
+- Catálogo de canciones (setlist): añadir/quitar, reordenar, autoguardado local e importar/exportar como archivo `.json` portátil.
 - Diseño responsive para tablets y móviles.
 - Persistencia: fondo, última versión e idioma guardados automáticamente.
 - Tests unitarios de parsers y cargador de Biblia.
@@ -38,9 +39,10 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 5. La interfaz de control se abre en el monitor principal y, si hay un segundo monitor, se abre automáticamente una ventana de presentación fullscreen en él
 6. Desde la topbar elige **Liricas**, **Biblia** u **Opciones**
 7. En Liricas: selecciona una canción y haz clic en el bloque que quieras mostrar en la pantalla de presentación
-8. En Liricas → Fondos: elige una foto de la galería para mostrarla como fondo mientras no hay letra
-9. En Biblia: elige versión, libro y capítulo para mostrar los versículos
-10. En Opciones: cambia fondo, idioma o visita la sección de donaciones
+8. En Liricas → Catálogo (derecha): usa **+** para añadir canciones a la lista, reordénalas, impórtala/expórtala o haz clic en un elemento para proyectarla
+9. En Liricas → Fondos: elige una foto de la galería para mostrarla como fondo mientras no hay letra
+10. En Biblia: elige versión, libro y capítulo para mostrar los versículos
+11. En Opciones: cambia fondo, idioma, abre la presentación manualmente o visita la sección de donaciones
 
 ## Desarrollo
 

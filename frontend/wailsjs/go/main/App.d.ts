@@ -7,6 +7,8 @@ export function CreateSong(arg1:string,arg2:string,arg3:string):Promise<main.Son
 
 export function EnsurePresentation():Promise<boolean>;
 
+export function ExportCatalog(arg1:main.Catalog):Promise<string>;
+
 export function GetBackground():Promise<string>;
 
 export function GetPresentationBackground():Promise<string>;
@@ -21,15 +23,21 @@ export function Greet(arg1:string):Promise<string>;
 
 export function HasSecondMonitor():Promise<boolean>;
 
+export function ImportCatalog():Promise<main.Catalog>;
+
 export function LoadBackgrounds():Promise<Array<string>>;
 
 export function LoadBibleSongs(arg1:string):Promise<Array<main.Song>>;
 
 export function LoadBibleVersions():Promise<Array<main.BibleVersion>>;
 
+export function LoadCatalog():Promise<main.Catalog>;
+
 export function LoadSongs():Promise<Array<main.Song>>;
 
 export function OpenDonationPage():Promise<void>;
+
+export function SaveCatalog(arg1:main.Catalog):Promise<void>;
 
 export function SetBackground(arg1:string):Promise<void>;
 
