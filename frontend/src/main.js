@@ -94,6 +94,7 @@ const i18n = {
     noSecondMonitorTitle: 'No tienes segundo monitor para proyectar',
     noSecondMonitorMsg: 'OpenLyric requiere un segundo monitor o proyector para mostrar las letras. Conecta un segundo monitor y reinicia la aplicación.',
     noSecondMonitorHint: 'Puedes usar Opciones para cambiar el idioma, pero no podrás proyectar letras sin una segunda pantalla.',
+    retryDetection: 'Reintentar detección',
     errorLoading: 'Error al cargar.',
     errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
   },
@@ -144,6 +145,7 @@ const i18n = {
     noSecondMonitorTitle: 'No second monitor to project',
     noSecondMonitorMsg: 'OpenLyric requires a second monitor or projector to display lyrics. Connect a second monitor and restart the application.',
     noSecondMonitorHint: 'You can use Options to change the language, but you will not be able to project lyrics without a second screen.',
+    retryDetection: 'Retry detection',
     errorLoading: 'Error loading.',
     errorLoadingVersion: 'Error loading Bible version.',
   },
@@ -566,6 +568,20 @@ function showTab(tab) {
   document.getElementById(`view-${tab}`).style.display = 'block';
   clearAutoAdvance();
   render();
+  updateSecondMonitorWarning();
+}
+
+// Muestra u oculta la advertencia de segundo monitor según la pestaña activa.
+// Solo impide la proyección (Liricas/Biblia), no bloquea el acceso a Opciones.
+function updateSecondMonitorWarning() {
+  const warningEl = document.getElementById('monitor-warning');
+  if (!warningEl) return;
+
+  if (!hasSecondMonitor && (currentTab === 'lyricas' || currentTab === 'biblia')) {
+    warningEl.style.display = 'flex';
+  } else {
+    warningEl.style.display = 'none';
+  }
 }
 
 // ---------- Inicialización ----------
@@ -587,12 +603,9 @@ async function init() {
     hasSecondMonitor = false;
   }
 
-  if (!hasSecondMonitor) {
-    document.getElementById('monitor-warning').style.display = 'flex';
-    document.getElementById('tab-lyricas').disabled = true;
-    document.getElementById('tab-biblia').disabled = true;
-    document.getElementById('content').style.display = 'none';
-  }
+  // Si no hay segundo monitor, mostrar advertencia en las pestañas de proyección
+  // pero no bloquear el acceso a Opciones ni a crear canciones
+  updateSecondMonitorWarning();
 
   // Cargar canciones
   try {
@@ -697,6 +710,36 @@ async function init() {
     if (autoAdvance) startAutoAdvance(); else clearAutoAdvance();
   });
 
+  // Reintentar detección de segundo monitor
+  document.getElementById('retry-monitor').addEventListener('click', async () => {
+    try {
+      const result = await HasSecondMonitor();
+      hasSecondMonitor = !!result;
+      updateSecondMonitorWarning();
+      if (hasSecondMonitor) {
+        document.getElementById('lyricas-status').innerText = 'Segundo monitor detectado.';
+      } else {
+        document.getElementById('lyricas-status').innerText = 'Aún no se detecta segundo monitor.';
+      }
+    } catch (e) {
+      hasSecondMonitor = false;
+      updateSecondMonitorWarning();
+      document.getElementById('lyricas-status').innerText = 'Error al detectar monitores.';
+    }
+  });
+
+  // Teclado
+  document.addEventListener('keydown', (e) => {
+    const target = e.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    if (e.key === 'ArrowRight') {
+      if (currentTab === 'biblia') nextBibliaVerse(); else nextLyricasBlock();
+    }
+    if (e.key === 'ArrowLeft') {
+      if (currentTab === 'biblia') prevBibliaVerse(); else prevLyricasBlock();
+    }
+  });
+
   // Teclado
   document.addEventListener('keydown', (e) => {
     const target = e.target;
@@ -725,6 +768,9 @@ appElement.innerHTML = `
       <h2 style="margin-top:0; font-size:1.5rem;">⚠️ ${t('noSecondMonitorTitle')}</h2>
       <p style="font-size:1.1rem; margin:1rem 0;">${t('noSecondMonitorMsg')}</p>
       <p style="font-size:0.9rem; opacity:0.9;">${t('noSecondMonitorHint')}</p>
+      <button id="retry-monitor" style="margin-top:1rem; padding:0.6rem 1.2rem; font-size:1rem; border:none; border-radius:6px; background:rgba(255,255,255,0.2); color:white; cursor:pointer;">
+        ${t('retryDetection')}
+      </button>
     </div>
   </div>
   <div id="content">

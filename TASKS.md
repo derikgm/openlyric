@@ -56,7 +56,8 @@
 - [x] Añadir sección de contribución ✅ (sección actualizada en README)
 - [x] Añadir soporte de versiones de la Biblia (JSON tipo Reina-Valera) ✅ (backend `bible.go`, `LoadBibleVersions`, `LoadBibleSongs`; frontend selector de versión)
 - [x] Fondos / galería de imágenes (carpeta `backgrounds/`) ✅ (selección rápida de fotos desde la sección Liricas)
-- [x] Validación de segundo monitor al arranque ✅ (mensaje de advertencia si no hay segundo monitor conectado)
+- [x] Validación de segundo monitor al arranque ✅ (mensaje de advertencia si no hay segundo monitor conectado, sin bloquear acceso a la app)
+- [x] Botón "Reintentar detección" en el cartel de advertencia ✅
 - [x] Persistencia, responsive e i18n ES/EN ✅
 - [x] Tests unitarios Go ✅
 
