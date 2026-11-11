@@ -1,0 +1,140 @@
+#viewer {
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(27, 38, 54, 1);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: white;
+    text-align: center;
+    overflow: hidden;
+}
+
+#viewer[style*="background-image"] {
+    background-size: cover;
+}
+
+#song-header {
+    position: relative;
+    z-index: 1;
+}
+
+#song-title {
+    font-size: 3rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+#song-info {
+    font-size: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+#lyrics {
+    position: relative;
+    z-index: 1;
+    font-size: 2rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    padding: 2rem;
+    max-width: 100%;
+}
+
+#verse-controls {
+    position: relative;
+    z-index: 1;
+    margin-top: 2rem;
+}
+
+#next-verse {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    cursor: pointer;
+}
+
+#next-verse:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+#prev-verse {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    cursor: pointer;
+}
+
+#prev-verse:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+#background-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+}
+
+#background-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+}
+
+#background-input {
+    display: none;
+}
+
+#version-controls {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+#version-select {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+}
+
+#screens {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 2;
+    font-size: 0.9rem;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+}
+
+#status {
+    position: absolute;
+    bottom: 1rem;
+    left: 0;
+    right: 0;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
