@@ -22,22 +22,24 @@
 - [x] Crear canciones con letra desde la app (`CreateSong`) ✅
 
 ## Fase 3: Visor de letras
-- [x] Implementar UI del visor
-- [x] Avanzar verso
-- [x] Pantalla completa
-- [x] Seleccionar fondo
-- [x] Mostrar versos numerados de la Biblia (versiones cargadas desde `bibles/`) ✅
-- [x] Panel lateral izquierdo con lista de canciones / capítulos ✅ (y mensaje "No hay canciones." si no hay)
-- [x] Formulario para crear una nueva canción con letra desde la app ✅
-- [x] Avance automático de versos (timer, botón en visor) ✅
-- [x] Navegación de versos con teclado (← / →) ✅
-- [x] Contador de verso actual (p. ej. "Verso 5 — 3 de 31") ✅
-- [x] Overlay semitransparente para legibilidad del texto ✅
-- [x] Transición de fade entre versos ✅
-- [x] Persistencia del fondo y última versión (config JSON + localStorage) ✅
+- [x] Topbar de navegación: Liricas | Biblia | Opciones ✅
+- [x] Liricas: lista de canciones y bloques numerados, cambio rápido de bloque al hacer clic ✅
+- [x] Biblia: selector de versión, libros, capítulos y versículos en grande ✅
+- [x] Opciones: fondo, idioma (ES/EN) y donaciones ✅
+- [x] Avance automático de versos/bloques ✅
+- [x] Navegación con teclado (← / →) ✅
+- [x] Pantalla completa ✅
+- [x] Seleccionar fondo ✅
+- [x] Mostrar versos numerados de la Biblia ✅
+- [x] Panel lateral con lista de canciones/libros/capítulos ✅
+- [x] Formulario para crear una nueva canción desde la app ✅
+- [x] Transición de fade entre bloques/versos ✅
+- [x] Contador de verso actual ✅
+- [x] Overlay semitransparente para legibilidad ✅
 - [x] Diseño responsive (tablet y móvil) ✅
-- [x] Internacionalización español/inglés (ES/EN) ✅
-- [x] Tests unitarios Go (parsers txt/json, Biblia) ✅
+- [x] Internacionalización español/inglés ✅
+- [x] Persistencia (fondo, última versión, idioma) ✅
+- [x] Tests unitarios Go ✅
 
 ## Fase 4: Controlador y monitores
 - [x] Detectar monitores ✅ (backend `GetScreens` + UI que lista monitores)

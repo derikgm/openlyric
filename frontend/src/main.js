@@ -1,504 +1,701 @@
 import './style.css';
 import './app.css';
 
-import {SetBackground, GetScreens, LoadBibleSongs, LoadBibleVersions, CreateSong, GetBackground} from '../wailsjs/go/main/App';
+import {
+  LoadSongs,
+  LoadBibleVersions,
+  LoadBibleSongs,
+  CreateSong,
+  SetBackground,
+  GetScreens,
+  GetBackground,
+} from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
 
+// ---------- Estado ----------
 let songs = [];
 let versions = [];
-let selectedIndex = 0;
-let verses = [];
-let currentVerse = 0;
-let listTitle = 'Canciones';
+let currentTab = 'lyricas'; // 'lyricas' | 'biblia' | 'opciones'
+
+// Liricas
+let currentSongIndex = 0;
+let currentBlockIndex = 0;
+let blocks = [];
+
+// Biblia
+let currentVersionIndex = 0;
+let currentBookIndex = 0;
+let currentChapterIndex = 0;
+let bibleVerses = [];
+let currentVerseIndex = 0;
+
+// Opciones / UI
 let autoAdvance = false;
 let autoAdvanceTimer = null;
-
-const i18n = {
-    es: {
-        loading: 'Cargando...',
-        loadingSongs: 'Cargando canciones...',
-        noSongs: 'No hay canciones disponibles.',
-        addSongs: 'Añade archivos en la carpeta `songs/`.',
-        noVersions: 'No se encontraron versiones de la Biblia.',
-        errorLoading: 'Error al cargar las canciones.',
-        errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
-        version: 'Versión:',
-        backgroundUpdated: 'Fondo actualizado.',
-        errorBackground: 'Error al seleccionar el fondo.',
-        songCreated: 'Canción creada.',
-        titleRequired: 'El título es obligatorio.',
-        errorCreate: 'Error al crear la canción.',
-        nextVerse: 'Siguiente verso',
-        selectBackground: 'Seleccionar fondo',
-        newSong: '+ Nueva',
-        save: 'Guardar',
-        cancel: 'Cancelar',
-        autoAdvanceOn: '⏱ Avance automático: ON',
-        autoAdvanceOff: '⏱ Avance automático: OFF',
-        noScreens: 'No se detectaron monitores.',
-        noSongsPanel: 'No hay canciones.',
-        newSongTitle: 'Título',
-        newSongArtist: 'Artista / Autor',
-        newSongLyrics: 'Letra de la canción...',
-    },
-    en: {
-        loading: 'Loading...',
-        loadingSongs: 'Loading songs...',
-        noSongs: 'No songs available.',
-        addSongs: 'Add files to the `songs/` folder.',
-        noVersions: 'No Bible versions found.',
-        errorLoading: 'Error loading songs.',
-        errorLoadingVersion: 'Error loading Bible version.',
-        version: 'Version:',
-        backgroundUpdated: 'Background updated.',
-        errorBackground: 'Error selecting background.',
-        songCreated: 'Song created.',
-        titleRequired: 'Title is required.',
-        errorCreate: 'Error creating song.',
-        nextVerse: 'Next verse',
-        selectBackground: 'Select background',
-        newSong: '+ New',
-        save: 'Save',
-        cancel: 'Cancel',
-        autoAdvanceOn: '⏱ Auto-advance: ON',
-        autoAdvanceOff: '⏱ Auto-advance: OFF',
-        noScreens: 'No monitors detected.',
-        noSongsPanel: 'No songs.',
-        newSongTitle: 'Title',
-        newSongArtist: 'Artist / Author',
-        newSongLyrics: 'Song lyrics...',
-    },
-};
-
 let lang = localStorage.getItem('openlyric:lang') || 'es';
 
+// ---------- i18n ----------
+const i18n = {
+  es: {
+    appName: 'OpenLyric',
+    tabLyricas: 'Liricas',
+    tabBiblia: 'Biblia',
+    tabOpciones: 'Opciones',
+    songs: 'Canciones',
+    noSongs: 'No hay canciones.',
+    newSong: '+ Nueva canción',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    title: 'Título',
+    artist: 'Artista / Autor',
+    lyrics: 'Letra (bloques separados por línea en blanco)',
+    songCreated: 'Canción creada.',
+    titleRequired: 'El título es obligatorio.',
+    errorCreate: 'Error al crear la canción.',
+    blocks: 'Bloques',
+    noBlocks: 'Sin bloques.',
+    blockShort: 'Bloque',
+    prevBlock: '← Bloque anterior',
+    nextBlock: 'Siguiente bloque →',
+    autoAdvanceOn: '⏱ Avance automático: ON',
+    autoAdvanceOff: '⏱ Avance automático: OFF',
+    versions: 'Versiones de la Biblia',
+    noVersions: 'No se encontraron versiones de la Biblia.',
+    version: 'Versión:',
+    books: 'Libros',
+    chapters: 'Capítulos',
+    verse: 'Verso',
+    noVerses: 'Sin versículos.',
+    background: 'Fondo',
+    selectBackground: 'Seleccionar fondo',
+    backgroundUpdated: 'Fondo actualizado.',
+    errorBackground: 'Error al seleccionar el fondo.',
+    language: 'Idioma',
+    langEs: 'ES',
+    langEn: 'EN',
+    donations: 'Donaciones',
+    donationsText: '¿Te gusta OpenLyric? Apoya el proyecto con una donación.',
+    donateBtn: 'Donar',
+    screens: 'Monitores',
+    noScreens: 'No se detectaron monitores.',
+    errorLoading: 'Error al cargar.',
+    errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
+  },
+  en: {
+    appName: 'OpenLyric',
+    tabLyricas: 'Lyrics',
+    tabBiblia: 'Bible',
+    tabOpciones: 'Options',
+    songs: 'Songs',
+    noSongs: 'No songs.',
+    newSong: '+ New song',
+    save: 'Save',
+    cancel: 'Cancel',
+    title: 'Title',
+    artist: 'Artist / Author',
+    lyrics: 'Lyrics (blocks separated by blank line)',
+    songCreated: 'Song created.',
+    titleRequired: 'Title is required.',
+    errorCreate: 'Error creating song.',
+    blocks: 'Blocks',
+    noBlocks: 'No blocks.',
+    blockShort: 'Block',
+    prevBlock: '← Previous block',
+    nextBlock: 'Next block →',
+    autoAdvanceOn: '⏱ Auto-advance: ON',
+    autoAdvanceOff: '⏱ Auto-advance: OFF',
+    versions: 'Bible versions',
+    noVersions: 'No Bible versions found.',
+    version: 'Version:',
+    books: 'Books',
+    chapters: 'Chapters',
+    verse: 'Verse',
+    noVerses: 'No verses.',
+    background: 'Background',
+    selectBackground: 'Select background',
+    backgroundUpdated: 'Background updated.',
+    errorBackground: 'Error selecting background.',
+    language: 'Language',
+    langEs: 'ES',
+    langEn: 'EN',
+    donations: 'Donations',
+    donationsText: 'Like OpenLyric? Support the project with a donation.',
+    donateBtn: 'Donate',
+    screens: 'Monitors',
+    noScreens: 'No monitors detected.',
+    errorLoading: 'Error loading.',
+    errorLoadingVersion: 'Error loading Bible version.',
+  },
+};
+
 function t(key) {
-    const dictionary = i18n[lang] || i18n.es;
-    return dictionary[key] ?? i18n.es[key] ?? key;
+  const dict = i18n[lang] || i18n.es;
+  return dict[key] ?? i18n.es[key] ?? key;
 }
 
 function setLang(newLang) {
-    lang = newLang;
-    localStorage.setItem('openlyric:lang', lang);
+  lang = newLang;
+  localStorage.setItem('openlyric:lang', lang);
 }
 
-function trVersion(version) {
-    return `${t('version')} ${version.translation ?? version.abbreviation ?? ''}`;
-}
-
-function splitVerses(lyrics) {
-    const blocks = String(lyrics ?? '')
-        .split(/\r?\n\s*\r?\n/)
-        .map((verse) => verse.trim())
-        .filter((verse) => verse.length > 0);
-
-    return blocks.length > 0 ? blocks : [String(lyrics ?? '')];
-}
-
-function render() {
-    const song = songs[selectedIndex];
-    const songTitleElement = document.getElementById('song-title');
-    const songInfoElement = document.getElementById('song-info');
-    const lyricsElement = document.getElementById('lyrics');
-
-    if (!song) {
-        songTitleElement.innerText = 'OpenLyric';
-        songInfoElement.innerText = t('noSongs');
-        lyricsElement.innerText = t('addSongs');
-        return;
-    }
-
-    songTitleElement.innerText = song.title;
-    songInfoElement.innerText = song.artist;
-
-    const verseText = verses[currentVerse] ?? song.lyrics;
-    const verseNumbers = Array.isArray(song.verseNumbers) ? song.verseNumbers : [];
-    lyricsElement.classList.remove('verse-fade');
-    void lyricsElement.offsetWidth;
-    lyricsElement.classList.add('verse-fade');
-    if (verseNumbers[currentVerse] != null) {
-        lyricsElement.innerText = `Verso ${verseNumbers[currentVerse]}\n${currentVerse + 1} de ${verseNumbers.length}\n\n${verseText}`;
-    } else {
-        lyricsElement.innerText = verseText;
-    }
+// ---------- Utilidades ----------
+function splitBlocks(lyrics) {
+  const blocks = String(lyrics ?? '')
+    .split(/\r?\n\s*\r?\n/)
+    .map((b) => b.trim())
+    .filter((b) => b.length > 0);
+  return blocks.length > 0 ? blocks : [String(lyrics ?? '')];
 }
 
 function clearAutoAdvance() {
-    if (autoAdvanceTimer) {
-        clearInterval(autoAdvanceTimer);
-        autoAdvanceTimer = null;
-    }
+  if (autoAdvanceTimer) {
+    clearInterval(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
 }
 
 function startAutoAdvance() {
-    clearAutoAdvance();
-    autoAdvanceTimer = setInterval(() => {
-        if (verses.length === 0) {
-            clearAutoAdvance();
-            return;
-        }
-
-        currentVerse = (currentVerse + 1) % verses.length;
-        render();
-    }, 8000);
-}
-
-function selectSong(index) {
-    selectedIndex = index;
-    verses = splitVerses(songs[index]?.lyrics ?? '');
-    currentVerse = 0;
+  clearAutoAdvance();
+  const items = currentTab === 'biblia' ? bibleVerses : blocks;
+  if (items.length === 0) return;
+  autoAdvanceTimer = setInterval(() => {
+    if (currentTab === 'biblia') {
+      currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
+    } else {
+      currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
+    }
     render();
-    renderSongList();
+  }, 8000);
 }
 
-function renderSongList() {
-    const songListTitleElement = document.getElementById('song-list-title');
-    const songListItemsElement = document.getElementById('song-list-items');
+// ---------- Render ----------
+function render() {
+  if (currentTab === 'lyricas') {
+    renderLyricas();
+  } else if (currentTab === 'biblia') {
+    renderBiblia();
+  } else {
+    renderOpciones();
+  }
+}
 
-    songListTitleElement.innerText = listTitle;
+function renderLyricas() {
+  const songListEl = document.getElementById('lyricas-song-list');
+  const blocksEl = document.getElementById('lyricas-blocks');
+  const displayEl = document.getElementById('lyricas-block-display');
+  const titleEl = document.getElementById('lyricas-song-title');
+  const controlsEl = document.getElementById('lyricas-controls');
 
-    songListItemsElement.innerHTML = '';
+  const song = songs[currentSongIndex];
 
-    if (songs.length === 0) {
-        const emptyElement = document.createElement('div');
-        emptyElement.id = 'song-list-empty';
-        emptyElement.innerText = t('noSongsPanel');
-        songListItemsElement.appendChild(emptyElement);
-        return;
-    }
+  // Lista de canciones
+  songListEl.innerHTML = '';
+  const hSongs = document.createElement('h3');
+  hSongs.innerText = t('songs');
+  songListEl.appendChild(hSongs);
 
+  if (songs.length === 0) {
+    const empty = document.createElement('div');
+    empty.id = 'lyricas-empty';
+    empty.innerText = t('noSongs');
+    songListEl.appendChild(empty);
+  } else {
     for (let i = 0; i < songs.length; i++) {
-        const song = songs[i];
-        const itemElement = document.createElement('div');
-        itemElement.className = 'song-list-item' + (i === selectedIndex ? ' active' : '');
-        itemElement.innerText = song.title ?? '';
-        itemElement.dataset.index = String(i);
-        itemElement.addEventListener('click', () => selectSong(Number(itemElement.dataset.index)));
-        songListItemsElement.appendChild(itemElement);
+      const item = document.createElement('div');
+      item.className = 'lyricas-item' + (i === currentSongIndex ? ' active' : '');
+      item.innerText = songs[i].title ?? '';
+      item.dataset.index = String(i);
+      item.addEventListener('click', () => selectLyricasSong(Number(item.dataset.index)));
+      songListEl.appendChild(item);
     }
-}
-
-function renderScreens(screens) {
-    const screensElement = document.getElementById('screens');
-
-    if (!screens || screens.length === 0) {
-        screensElement.innerText = t('noScreens');
-        return;
-    }
-
-    const lines = screens.map((screen, index) => {
-        const label = screen.isPrimary ? 'Monitor principal' : `Monitor ${index + 1}`;
-        const width = screen.size ? screen.size.width : screen.width;
-        const height = screen.size ? screen.size.height : screen.height;
-        const suffix = screen.isCurrent ? ' (en uso)' : '';
-        return `${label}: ${width}x${height}${suffix}`;
+    const newBtn = document.createElement('button');
+    newBtn.id = 'lyricas-new-song';
+    newBtn.innerText = t('newSong');
+    newBtn.addEventListener('click', () => {
+      document.getElementById('lyricas-new-song-form').style.display = 'block';
     });
+    songListEl.appendChild(newBtn);
+  }
 
-    screensElement.innerText = lines.join('  ·  ');
+  // Bloques de la canción seleccionada
+  blocksEl.innerHTML = '';
+  if (song) {
+    const hBlocks = document.createElement('h3');
+    hBlocks.innerText = t('blocks');
+    blocksEl.appendChild(hBlocks);
+
+    blocks = splitBlocks(song.lyrics ?? '');
+
+    if (blocks.length === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'lyricas-no-blocks';
+      empty.innerText = t('noBlocks');
+      blocksEl.appendChild(empty);
+    } else {
+      for (let i = 0; i < blocks.length; i++) {
+        const item = document.createElement('div');
+        item.className = 'lyricas-block' + (i === currentBlockIndex ? ' active' : '');
+        item.innerText = `${t('blockShort')} ${i + 1}`;
+        item.dataset.index = String(i);
+        item.addEventListener('click', () => selectLyricasBlock(Number(item.dataset.index)));
+        blocksEl.appendChild(item);
+      }
+    }
+
+    titleEl.innerText = song.title ?? '';
+    controlsEl.style.display = 'flex';
+
+    if (blocks.length > 0) {
+      displayEl.innerText = blocks[currentBlockIndex];
+    } else {
+      displayEl.innerText = '';
+    }
+  } else {
+    blocks = [];
+    titleEl.innerText = '';
+    controlsEl.style.display = 'none';
+    displayEl.innerText = '';
+  }
 }
 
-function readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
+function selectLyricasSong(index) {
+  if (songs.length === 0) return;
+  currentSongIndex = index;
+  currentBlockIndex = 0;
+  render();
+}
+
+function selectLyricasBlock(index) {
+  if (blocks.length === 0) return;
+  currentBlockIndex = index;
+  render();
+  if (autoAdvance) startAutoAdvance();
+}
+
+function prevLyricasBlock() {
+  if (blocks.length === 0) return;
+  currentBlockIndex = (currentBlockIndex - 1 + blocks.length) % blocks.length;
+  render();
+  if (autoAdvance) startAutoAdvance();
+}
+
+function nextLyricasBlock() {
+  if (blocks.length === 0) return;
+  currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
+  render();
+  if (autoAdvance) startAutoAdvance();
+}
+
+// ---------- Biblia ----------
+async function loadBibleVersions() {
+  const loaded = await LoadBibleVersions();
+  versions = loaded ?? [];
+  const selectEl = document.getElementById('biblia-version-select');
+  selectEl.innerHTML = '';
+  if (versions.length === 0) {
+    document.getElementById('biblia-no-versions').style.display = 'block';
+    return;
+  }
+  document.getElementById('biblia-no-versions').style.display = 'none';
+  for (const v of versions) {
+    const o = document.createElement('option');
+    o.value = v.abbreviation;
+    o.innerText = v.translation ? `${v.translation} (${v.abbreviation})` : v.abbreviation;
+    selectEl.appendChild(o);
+  }
+}
+
+async function selectBibleVersion(abbrev) {
+  const v = versions.find((x) => x.abbreviation === abbrev);
+  if (!v) return;
+  currentVersionIndex = versions.findIndex((x) => x.abbreviation === abbrev);
+  localStorage.setItem('openlyric:version', abbrev);
+
+  const loadedSongs = await LoadBibleSongs(abbrev);
+  renderBibliaBooks(loadedSongs ?? []);
+}
+
+function renderBibliaBooks(songsList) {
+  const booksEl = document.getElementById('biblia-books');
+  const chaptersEl = document.getElementById('biblia-chapters');
+  const versesEl = document.getElementById('biblia-verses');
+  const displayEl = document.getElementById('biblia-block-display');
+  const titleEl = document.getElementById('biblia-song-title');
+  const controlsEl = document.getElementById('biblia-controls');
+
+  booksEl.innerHTML = '';
+  chaptersEl.innerHTML = '';
+  versesEl.innerHTML = '';
+  displayEl.innerText = '';
+  titleEl.innerText = '';
+  controlsEl.style.display = 'none';
+
+  const hBooks = document.createElement('h3');
+  hBooks.innerText = t('books');
+  booksEl.appendChild(hBooks);
+
+  if (songsList.length === 0) {
+    const empty = document.createElement('div');
+    empty.innerText = t('noVersions');
+    booksEl.appendChild(empty);
+    return;
+  }
+
+  // Agrupar por libro
+  const booksMap = {};
+  for (const s of songsList) {
+    const bookName = s.title?.split(' ').slice(0, -1).join(' ') || s.title;
+    if (!booksMap[bookName]) booksMap[bookName] = [];
+    booksMap[bookName].push(s);
+  }
+
+  const bookNames = Object.keys(booksMap);
+  for (const name of bookNames) {
+    const item = document.createElement('div');
+    item.className = 'lyricas-item' + (currentBookIndex === bookNames.indexOf(name) ? ' active' : '');
+    item.innerText = name;
+    item.dataset.book = name;
+    item.addEventListener('click', () => {
+      currentBookIndex = bookNames.indexOf(name);
+      renderBibliaChapters(booksMap[name]);
     });
+    booksEl.appendChild(item);
+  }
+
+  if (bookNames.length > 0) {
+    renderBibliaChapters(booksMap[bookNames[0]]);
+  }
 }
 
-async function loadVersionSongs(version) {
-    const loadedSongs = await LoadBibleSongs(version.abbreviation);
-    songs = loadedSongs ?? [];
+function renderBibliaChapters(chapterSongs) {
+  const chaptersEl = document.getElementById('biblia-chapters');
+  const versesEl = document.getElementById('biblia-verses');
+  const displayEl = document.getElementById('biblia-block-display');
+  const titleEl = document.getElementById('biblia-song-title');
+  const controlsEl = document.getElementById('biblia-controls');
 
-    if (songs.length === 0) {
-        render();
-        return;
+  chaptersEl.innerHTML = '';
+  versesEl.innerHTML = '';
+  displayEl.innerText = '';
+  titleEl.innerText = '';
+  controlsEl.style.display = 'none';
+
+  const hChapters = document.createElement('h3');
+  hChapters.innerText = t('chapters');
+  chaptersEl.appendChild(hChapters);
+
+  for (let i = 0; i < chapterSongs.length; i++) {
+    const item = document.createElement('div');
+    item.className = 'lyricas-item' + (currentChapterIndex === i ? ' active' : '');
+    item.innerText = chapterSongs[i].title ?? '';
+    item.dataset.index = String(i);
+    item.addEventListener('click', () => {
+      currentChapterIndex = Number(item.dataset.index);
+      renderBibliaVerses(chapterSongs[currentChapterIndex]);
+    });
+    chaptersEl.appendChild(item);
+  }
+
+  if (chapterSongs.length > 0) {
+    renderBibliaVerses(chapterSongs[0]);
+  }
+}
+
+function renderBibliaVerses(song) {
+  const versesEl = document.getElementById('biblia-verses');
+  const displayEl = document.getElementById('biblia-block-display');
+  const titleEl = document.getElementById('biblia-song-title');
+  const controlsEl = document.getElementById('biblia-controls');
+
+  versesEl.innerHTML = '';
+  displayEl.innerText = '';
+  titleEl.innerText = song.title ?? '';
+  controlsEl.style.display = 'flex';
+
+  bibleVerses = splitBlocks(song.lyrics ?? '');
+  currentVerseIndex = 0;
+
+  if (bibleVerses.length === 0) {
+    const empty = document.createElement('div');
+    empty.innerText = t('noVerses');
+    versesEl.appendChild(empty);
+    return;
+  }
+
+  for (let i = 0; i < bibleVerses.length; i++) {
+    const item = document.createElement('div');
+    item.className = 'lyricas-block' + (i === currentVerseIndex ? ' active' : '');
+    item.innerText = `${t('verse')} ${i + 1}`;
+    item.dataset.index = String(i);
+    item.addEventListener('click', () => {
+      currentVerseIndex = Number(item.dataset.index);
+      render();
+    });
+    versesEl.appendChild(item);
+  }
+
+  displayEl.innerText = bibleVerses[0];
+}
+
+function renderBiblia() {
+  const noVersionsEl = document.getElementById('biblia-no-versions');
+  const versionSelect = document.getElementById('biblia-version-select');
+  const saved = localStorage.getItem('openlyric:version');
+  if (saved && versions.length > 0) {
+    const found = versions.find((v) => v.abbreviation === saved);
+    if (found) {
+      versionSelect.value = saved;
+      currentVersionIndex = versions.findIndex((v) => v.abbreviation === saved);
     }
-
-    listTitle = version.translation ?? version.abbreviation;
-    selectSong(0);
+  }
+  if (versions.length > 0) {
+    selectBibleVersion(versions[currentVersionIndex]?.abbreviation || versions[0].abbreviation);
+  }
 }
 
-function renderVersionSelect(versionsList) {
-    const versionSelectElement = document.getElementById('version-select');
-    versionSelectElement.innerHTML = '';
-
-    for (const version of versionsList) {
-        const option = document.createElement('option');
-        option.value = version.abbreviation;
-        option.innerText = version.translation
-            ? `${version.translation} (${version.abbreviation})`
-            : version.abbreviation;
-        versionSelectElement.appendChild(option);
-    }
+function prevBibliaVerse() {
+  if (bibleVerses.length === 0) return;
+  currentVerseIndex = (currentVerseIndex - 1 + bibleVerses.length) % bibleVerses.length;
+  render();
+  if (autoAdvance) startAutoAdvance();
 }
 
+function nextBibliaVerse() {
+  if (bibleVerses.length === 0) return;
+  currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
+  render();
+  if (autoAdvance) startAutoAdvance();
+}
+
+// ---------- Opciones ----------
+function renderOpciones() {
+  const savedBg = localStorage.getItem('openlyric:background');
+  const bgInput = document.getElementById('opciones-background');
+  if (savedBg) {
+    document.getElementById('viewer').style.backgroundImage = savedBg;
+  }
+  const langSel = document.getElementById('opciones-lang');
+  langSel.value = lang;
+}
+
+// ---------- Navegación ----------
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('#topbar-tabs .tab').forEach((el) => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.querySelectorAll('#content section.view').forEach((el) => {
+    el.style.display = 'none';
+  });
+  document.getElementById(`view-${tab}`).style.display = 'block';
+  clearAutoAdvance();
+  render();
+}
+
+// ---------- Inicialización ----------
 async function init() {
-    const statusElement = document.getElementById('status');
-    statusElement.innerText = t('loadingSongs');
+  // Topbar
+  document.getElementById('tab-lyricas').innerText = t('tabLyricas');
+  document.getElementById('tab-biblia').innerText = t('tabBiblia');
+  document.getElementById('tab-opciones').innerText = t('tabOpciones');
 
+  document.getElementById('tab-lyricas').addEventListener('click', () => showTab('lyricas'));
+  document.getElementById('tab-biblia').addEventListener('click', () => showTab('biblia'));
+  document.getElementById('tab-opciones').addEventListener('click', () => showTab('opciones'));
+
+  // Cargar canciones
+  try {
+    const loaded = await LoadSongs();
+    songs = loaded ?? [];
+  } catch (e) {
+    songs = [];
+  }
+
+  // Cargar versiones
+  try {
+    await loadBibleVersions();
+  } catch (e) {
+    versions = [];
+  }
+
+  // Opciones UI
+  document.getElementById('opciones-lang').value = lang;
+  document.getElementById('opciones-lang').addEventListener('change', (e) => {
+    setLang(e.target.value);
+    document.getElementById('tab-lyricas').innerText = t('tabLyricas');
+    document.getElementById('tab-biblia').innerText = t('tabBiblia');
+    document.getElementById('tab-opciones').innerText = t('tabOpciones');
+    render();
+  });
+
+  // Fondo
+  document.getElementById('opciones-background').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
     try {
-        const background = await GetBackground();
-        if (background) {
-            viewerElement.style.backgroundImage = background;
-        }
-    } catch (error) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        await SetBackground(dataUrl);
+        localStorage.setItem('openlyric:background', dataUrl);
+        document.getElementById('viewer').style.backgroundImage = dataUrl;
+        document.getElementById('opciones-status').innerText = t('backgroundUpdated');
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      document.getElementById('opciones-status').innerText = t('errorBackground');
     }
+  });
 
+  // Nueva canción (Liricas)
+  document.getElementById('lyricas-new-cancel').addEventListener('click', () => {
+    document.getElementById('lyricas-new-song-form').style.display = 'none';
+    document.getElementById('lyricas-new-title').value = '';
+    document.getElementById('lyricas-new-artist').value = '';
+    document.getElementById('lyricas-new-lyrics').value = '';
+  });
+
+  document.getElementById('lyricas-new-save').addEventListener('click', async () => {
+    const title = document.getElementById('lyricas-new-title').value.trim();
+    const artist = document.getElementById('lyricas-new-artist').value.trim();
+    const lyrics = document.getElementById('lyricas-new-lyrics').value;
+    if (!title) {
+      document.getElementById('lyricas-status').innerText = t('titleRequired');
+      return;
+    }
     try {
-        const loadedVersions = await LoadBibleVersions();
-        versions = loadedVersions ?? [];
-
-        renderVersionSelect(versions);
-
-        if (versions.length === 0) {
-            render();
-            renderSongList();
-            statusElement.innerText = t('noVersions');
-            return;
-        }
-
-        const versionSelectElement = document.getElementById('version-select');
-        versionSelectElement.addEventListener('change', async (event) => {
-            const version = versions.find((item) => item.abbreviation === event.target.value);
-            if (!version) {
-                return;
-            }
-
-            localStorage.setItem('openlyric:version', version.abbreviation);
-
-            try {
-                await loadVersionSongs(version);
-                statusElement.innerText = trVersion(version);
-            } catch (error) {
-                statusElement.innerText = t('errorLoadingVersion');
-            }
-        });
-
-        const savedVersion = localStorage.getItem('openlyric:version');
-        let versionToLoad = versions[0];
-        if (savedVersion) {
-            const saved = versions.find((item) => item.abbreviation === savedVersion);
-            if (saved) {
-                versionToLoad = saved;
-            }
-        }
-
-        await loadVersionSongs(versionToLoad);
-        listTitle = versionToLoad.translation ?? versionToLoad.abbreviation;
-        statusElement.innerText = trVersion(versionToLoad);
-
-        if (savedVersion !== versionToLoad.abbreviation) {
-            localStorage.setItem('openlyric:version', versionToLoad.abbreviation);
-        }
-    } catch (error) {
-        statusElement.innerText = t('errorLoading');
-        return;
+      const created = await CreateSong(title, artist, lyrics);
+      songs = [created];
+      currentSongIndex = 0;
+      currentBlockIndex = 0;
+      document.getElementById('lyricas-new-song-form').style.display = 'none';
+      document.getElementById('lyricas-new-title').value = '';
+      document.getElementById('lyricas-new-artist').value = '';
+      document.getElementById('lyricas-new-lyrics').value = '';
+      document.getElementById('lyricas-status').innerText = t('songCreated');
+      showTab('lyricas');
+    } catch (err) {
+      document.getElementById('lyricas-status').innerText = t('errorCreate');
     }
+  });
 
-    try {
-        const screens = await GetScreens();
-        renderScreens(screens ?? []);
-    } catch (error) {
-        renderScreens([]);
+  // Controles Liricas
+  document.getElementById('lyricas-prev-block').addEventListener('click', prevLyricasBlock);
+  document.getElementById('lyricas-next-block').addEventListener('click', nextLyricasBlock);
+
+  // Controles Biblia
+  document.getElementById('biblia-prev-verse').addEventListener('click', prevBibliaVerse);
+  document.getElementById('biblia-next-verse').addEventListener('click', nextBibliaVerse);
+  document.getElementById('biblia-version-select').addEventListener('change', (e) => {
+    selectBibleVersion(e.target.value);
+  });
+
+  // Auto-avance (global)
+  document.getElementById('auto-advance-button').addEventListener('click', () => {
+    autoAdvance = !autoAdvance;
+    document.getElementById('auto-advance-button').innerText = autoAdvance
+      ? t('autoAdvanceOn')
+      : t('autoAdvanceOff');
+    if (autoAdvance) startAutoAdvance(); else clearAutoAdvance();
+  });
+
+  // Teclado
+  document.addEventListener('keydown', (e) => {
+    const target = e.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    if (e.key === 'ArrowRight') {
+      if (currentTab === 'biblia') nextBibliaVerse(); else nextLyricasBlock();
     }
+    if (e.key === 'ArrowLeft') {
+      if (currentTab === 'biblia') prevBibliaVerse(); else prevLyricasBlock();
+    }
+  });
 
-    languageButton.innerText = lang === 'es' ? 'EN' : 'ES';
-    nextVerseButton.innerText = t('nextVerse');
-    backgroundButton.innerText = t('selectBackground');
-    newSongButton.innerText = t('newSong');
-    newSongSaveButton.innerText = t('save');
-    newSongCancelButton.innerText = t('cancel');
-    newSongTitleElement.placeholder = t('newSongTitle');
-    newSongArtistElement.placeholder = t('newSongArtist');
-    newSongLyricsElement.placeholder = t('newSongLyrics');
-    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
-    renderSongList();
+  showTab(currentTab);
 }
 
 appElement.innerHTML = `
-    <div id="viewer">
-        <div id="lyrics-overlay"></div>
-        <aside id="song-list">
-    <div id="song-list-header">
-                <span id="song-list-title">Canciones</span>
-                <button id="language-button">ES</button>
-                <button id="new-song-button">+ Nueva</button>
-            <div id="song-list-items"></div>
-            <div id="new-song-form" style="display: none;">
-                <input id="new-song-title" type="text" placeholder="Título" />
-                <input id="new-song-artist" type="text" placeholder="Artista / Autor" />
-                <textarea id="new-song-lyrics" placeholder="Letra de la canción..."></textarea>
-                <div id="new-song-actions">
-                    <button id="new-song-save">Guardar</button>
-                    <button id="new-song-cancel">Cancelar</button>
-                </div>
-            </div>
-        </aside>
-        <header id="song-header">
-            <h1 id="song-title">OpenLyric</h1>
-            <div id="song-info">Cargando...</div>
-        </header>
-        <div id="version-controls">
-            <select id="version-select"></select>
-        </div>
-        <main id="lyrics">Cargando...</main>
-        <div id="verse-controls">
-            <button id="prev-verse">←</button>
-            <button id="next-verse">Siguiente verso</button>
-            <button id="auto-advance-button">⏱ Avance automático: OFF</button>
-        </div>
-        <div id="screens"></div>
-        <div id="background-controls">
-            <input id="background-input" type="file" accept="image/*" />
-            <button id="background-button">Seleccionar fondo</button>
-        </div>
-        <div id="status">...</div>
+  <nav id="topbar">
+    <div id="topbar-brand">OpenLyric</div>
+    <div id="topbar-tabs">
+      <button id="tab-lyricas" class="tab active" data-tab="lyricas">${t('tabLyricas')}</button>
+      <button id="tab-biblia" class="tab" data-tab="biblia">${t('tabBiblia')}</button>
+      <button id="tab-opciones" class="tab" data-tab="opciones">${t('tabOpciones')}</button>
     </div>
+  </nav>
+  <div id="content">
+    <section id="view-lyricas" class="view">
+      <aside id="lyricas-sidebar">
+        <div id="lyricas-song-list"></div>
+        <div id="lyricas-new-song-form" style="display:none; margin-top:1rem;">
+          <input id="lyricas-new-title" type="text" placeholder="${t('title')}" />
+          <input id="lyricas-new-artist" type="text" placeholder="${t('artist')}" />
+          <textarea id="lyricas-new-lyrics" placeholder="${t('lyrics')}"></textarea>
+          <div style="margin-top:0.5rem;">
+            <button id="lyricas-new-save">${t('save')}</button>
+            <button id="lyricas-new-cancel">${t('cancel')}</button>
+          </div>
+          <div id="lyricas-status" style="margin-top:0.5rem; font-size:0.85rem; opacity:0.9;"></div>
+        </div>
+        <div id="lyricas-blocks"></div>
+      </aside>
+      <main id="lyricas-main">
+        <h1 id="lyricas-song-title"></h1>
+        <div id="lyricas-block-display"></div>
+        <div id="lyricas-controls" style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:center;">
+          <button id="lyricas-prev-block">${t('prevBlock')}</button>
+          <button id="lyricas-next-block">${t('nextBlock')}</button>
+        </div>
+      </main>
+    </section>
+
+    <section id="view-biblia" class="view" style="display:none;">
+      <aside id="biblia-sidebar">
+        <div style="margin-bottom:0.75rem;">
+          <label>${t('version')} </label>
+          <select id="biblia-version-select"></select>
+        </div>
+        <div id="biblia-no-versions" style="display:none; font-size:0.9rem; opacity:0.8;">${t('noVersions')}</div>
+        <div id="biblia-books"></div>
+      </aside>
+      <main id="biblia-main">
+        <div id="biblia-chapters"></div>
+        <div id="biblia-verses"></div>
+        <div id="biblia-song-title" style="font-size:1.5rem; margin-bottom:0.5rem; opacity:0.9;"></div>
+        <div id="biblia-block-display"></div>
+        <div id="biblia-controls" style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:center;">
+          <button id="biblia-prev-verse">${t('prevBlock')}</button>
+          <button id="biblia-next-verse">${t('nextBlock')}</button>
+        </div>
+      </main>
+    </section>
+
+    <section id="view-opciones" class="view" style="display:none;">
+      <aside id="opciones-sidebar">
+        <h3>${t('background')}</h3>
+        <input id="opciones-background" type="file" accept="image/*" />
+        <div id="opciones-status" style="margin-top:0.5rem; font-size:0.85rem; opacity:0.9;"></div>
+        <hr style="margin:1rem 0; border:none; border-top:1px solid rgba(255,255,255,0.15);" />
+        <h3>${t('language')}</h3>
+        <select id="opciones-lang">
+          <option value="es">${t('langEs')}</option>
+          <option value="en">${t('langEn')}</option>
+        </select>
+        <hr style="margin:1rem 0; border:none; border-top:1px solid rgba(255,255,255,0.15);" />
+        <h3>${t('donations')}</h3>
+        <p style="font-size:0.9rem; opacity:0.9; margin-bottom:0.75rem;">${t('donationsText')}</p>
+        <button id="opciones-donate">${t('donateBtn')}</button>
+      </aside>
+      <main id="opciones-main">
+        <div id="opciones-block-display"></div>
+      </main>
+    </section>
+  </div>
+  <div id="lyricas-overlay"></div>
+  <div id="global-controls">
+    <button id="auto-advance-button">${t('autoAdvanceOff')}</button>
+  </div>
 `;
-
-const songInfoElement = document.getElementById('song-info');
-const lyricsElement = document.getElementById('lyrics');
-const nextVerseButton = document.getElementById('next-verse');
-const prevVerseButton = document.getElementById('prev-verse');
-const backgroundButton = document.getElementById('background-button');
-const backgroundInput = document.getElementById('background-input');
-const statusElement = document.getElementById('status');
-const screensElement = document.getElementById('screens');
-const viewerElement = document.getElementById('viewer');
-const lyricsOverlayElement = document.getElementById('lyrics-overlay');
-const autoAdvanceButton = document.getElementById('auto-advance-button');
-const songListElement = document.getElementById('song-list');
-const songListTitleElement = document.getElementById('song-list-title');
-const songListItemsElement = document.getElementById('song-list-items');
-const newSongButton = document.getElementById('new-song-button');
-const newSongForm = document.getElementById('new-song-form');
-const newSongTitleElement = document.getElementById('new-song-title');
-const newSongArtistElement = document.getElementById('new-song-artist');
-const newSongLyricsElement = document.getElementById('new-song-lyrics');
-const newSongSaveButton = document.getElementById('new-song-save');
-const newSongCancelButton = document.getElementById('new-song-cancel');
-const versionSelectElement = document.getElementById('version-select');
-const languageButton = document.getElementById('language-button');
-
-nextVerseButton.addEventListener('click', () => {
-    if (verses.length === 0) return;
-
-    currentVerse = (currentVerse + 1) % verses.length;
-    render();
-    if (autoAdvance) startAutoAdvance();
-});
-
-prevVerseButton.addEventListener('click', () => {
-    if (verses.length === 0) return;
-
-    currentVerse = (currentVerse - 1 + verses.length) % verses.length;
-    render();
-    if (autoAdvance) startAutoAdvance();
-});
-
-autoAdvanceButton.addEventListener('click', () => {
-    autoAdvance = !autoAdvance;
-    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
-    if (autoAdvance) {
-        startAutoAdvance();
-    } else {
-        clearAutoAdvance();
-    }
-});
-
-document.addEventListener('keydown', (event) => {
-    const target = event.target;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-    }
-
-    if (event.key === 'ArrowRight') {
-        if (verses.length === 0) return;
-        currentVerse = (currentVerse + 1) % verses.length;
-        render();
-        if (autoAdvance) startAutoAdvance();
-    }
-
-    if (event.key === 'ArrowLeft') {
-        if (verses.length === 0) return;
-        currentVerse = (currentVerse - 1 + verses.length) % verses.length;
-        render();
-        if (autoAdvance) startAutoAdvance();
-    }
-});
-
-backgroundButton.addEventListener('click', () => backgroundInput.click());
-
-languageButton.addEventListener('click', () => {
-    setLang(lang === 'es' ? 'en' : 'es');
-    languageButton.innerText = lang === 'es' ? 'EN' : 'ES';
-    nextVerseButton.innerText = t('nextVerse');
-    backgroundButton.innerText = t('selectBackground');
-    newSongButton.innerText = t('newSong');
-    newSongSaveButton.innerText = t('save');
-    newSongCancelButton.innerText = t('cancel');
-    newSongTitleElement.placeholder = t('newSongTitle');
-    newSongArtistElement.placeholder = t('newSongArtist');
-    newSongLyricsElement.placeholder = t('newSongLyrics');
-    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
-    render();
-    renderSongList();
-});
-
-newSongButton.addEventListener('click', () => {
-    newSongForm.style.display = 'block';
-});
-
-newSongCancelButton.addEventListener('click', () => {
-    newSongForm.style.display = 'none';
-    newSongTitleElement.value = '';
-    newSongArtistElement.value = '';
-    newSongLyricsElement.value = '';
-});
-
-newSongSaveButton.addEventListener('click', async () => {
-    const title = newSongTitleElement.value.trim();
-    const artist = newSongArtistElement.value.trim();
-    const lyrics = newSongLyricsElement.value;
-
-    if (!title) {
-        statusElement.innerText = t('titleRequired');
-        return;
-    }
-
-    try {
-        const createdSong = await CreateSong(title, artist, lyrics);
-        songs = [createdSong];
-        selectedIndex = 0;
-        verses = splitVerses(createdSong.lyrics ?? '');
-        currentVerse = 0;
-        listTitle = 'Canción';
-        render();
-        renderSongList();
-        newSongForm.style.display = 'none';
-        newSongTitleElement.value = '';
-        newSongArtistElement.value = '';
-        newSongLyricsElement.value = '';
-        statusElement.innerText = t('songCreated');
-    } catch (error) {
-        statusElement.innerText = t('errorCreate');
-    }
-});
-
-backgroundInput.addEventListener('change', async (event) => {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-
-    try {
-        const dataUrl = await readFileAsDataURL(file);
-        await SetBackground(dataUrl);
-        viewerElement.style.backgroundImage = dataUrl;
-        statusElement.innerText = t('backgroundUpdated');
-    } catch (error) {
-        statusElement.innerText = t('errorBackground');
-    }
-});
 
 init();

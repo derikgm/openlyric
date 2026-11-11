@@ -1,26 +1,23 @@
 # OpenLyric
 
-Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras en un segundo monitor/proyector con fondos personalizables.
+Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado en la comodidad durante el culto o evento. Construido con Wails (Go + frontend web), disponible para Linux y Windows.
 
 ## Funcionalidades implementadas
 
 - Visor de letras fullscreen (`Fullscreen: true` al arrancar).
 - Apertura automática del visor en el segundo monitor (monitor no principal) cuando hay más de un monitor.
 - Detección de monitores disponibles (`runtime.ScreenGetAll`).
-- Avance de versos con controles: **←** (verso anterior) y **Siguiente verso**.
-- Selección de fondo mediante imagen (`data URL`) con persistencia en el backend.
+- Navegación por pestañas superiores: **Liricas**, **Biblia** y **Opciones**.
+- **Liricas**: lista de canciones, bloques numerados de letra, cambio rápido de bloque al hacer clic (ideal para coros y repeticiones), avance automático, teclado (← / →).
+- **Biblia**: cargar versiones JSON (p. ej. Reina-Valera 1909), seleccionar libro/capítulo y mostrar versículos en grande.
+- **Opciones**: fondo, idioma (ES/EN) y donaciones.
+- Selección de fondo mediante imagen (`data URL`) con persistencia.
 - Carga de canciones desde `songs/` en formatos `.txt`, `.xml` y `.json`.
-- Carga de versiones de la Biblia desde `bibles/` en formato JSON (p. ej. Reina-Valera 1909) con selector de versión y avance de versos por capítulo (verso actual numerado).
-- Panel lateral izquierdo con la lista de canciones/capítulos para escoger rápidamente (o el mensaje "No hay canciones." si no hay).
-- Creación de canciones con letra desde la app (formulario "Nueva canción").
+- Carga de versiones de la Biblia desde `bibles/` en formato JSON.
 - Creación automática de las carpetas `songs/` y `bibles/` si no existen.
-- Avance automático de versos (timer configurable en el visor, botón "⏱ Avance automático").
-- Navegación de versos con teclado (flechas ← / →).
-- Contador de verso actual (p. ej. "Verso 5 — 3 de 31").
+- Creación de canciones con letra desde la app.
 - Diseño responsive para tablets y móviles.
-- Internacionalización español/inglés (selector ES/EN).
-- Persistencia: fondo seleccionado y última versión guardados automáticamente.
-- Transición de fade entre versos.
+- Persistencia: fondo, última versión e idioma guardados automáticamente.
 - Tests unitarios de parsers y cargador de Biblia.
 
 ## Estructura
@@ -28,18 +25,17 @@ Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras 
 - `songs/` - Coloca aquí tus archivos de canciones (`.txt`, `.xml`, `.json`). Compatible con formatos comunes de Holyric.
 - `bibles/` - Coloca aquí los JSON de versiones de la Biblia (formato tipo Reina-Valera / OSIS con libros, capítulos y versos). Cada archivo `.json` dentro se registra como una versión.
 - `backgrounds/` - Coloca aquí tus imágenes de fondo (`.jpg`, `.jpeg`, `.png`, `.webp`).
-- El **Controlador** gestiona las canciones y el **Visor** se abre en la segunda pantalla en modo pantalla completa.
 
 ## Uso
 
-1. Añade canciones a `songs/` (o crea una nueva desde la app con el botón "+ Nueva")
+1. Añade canciones a `songs/` (o créalas desde la app en Liricas → "+ Nueva canción")
 2. Añade fondos a `backgrounds/`
 3. Añade versiones de la Biblia a `bibles/` (por ejemplo copia `valera.json` de Reina-Valera 1909)
 4. Ejecuta `openlyric`
-5. Desde el controlador: detecta monitores y abre el visor en el segundo monitor
-6. Selecciona fondo y avanza los versos con los controles
-7. Usa el selector de versión para cambiar entre versiones de la Biblia cargadas en `bibles/`
-8. Usa el panel lateral para ver y escoger la canción/capítulo actual
+5. Desde la topbar elige **Liricas**, **Biblia** u **Opciones**
+6. En Liricas: selecciona una canción y haz clic en el bloque que quieras mostrar en pantalla
+7. En Biblia: elige versión, libro y capítulo para mostrar los versículos
+8. En Opciones: cambia fondo, idioma o visita la sección de donaciones
 
 ## Desarrollo
 
