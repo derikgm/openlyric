@@ -11,6 +11,9 @@ Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras 
 - Selección de fondo mediante imagen (`data URL`) con persistencia en el backend.
 - Carga de canciones desde `songs/` en formatos `.txt`, `.xml` y `.json`.
 - Carga de versiones de la Biblia desde `bibles/` en formato JSON (p. ej. Reina-Valera 1909) con selector de versión y avance de versos por capítulo (verso actual numerado).
+- Panel lateral izquierdo con la lista de canciones/capítulos para escoger rápidamente (o el mensaje "No hay canciones." si no hay).
+- Creación de canciones con letra desde la app (formulario "Nueva canción").
+- Creación automática de las carpetas `songs/` y `bibles/` si no existen.
 
 ## Estructura
 
@@ -21,13 +24,14 @@ Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras 
 
 ## Uso
 
-1. Añade canciones a `songs/`
+1. Añade canciones a `songs/` (o crea una nueva desde la app con el botón "+ Nueva")
 2. Añade fondos a `backgrounds/`
 3. Añade versiones de la Biblia a `bibles/` (por ejemplo copia `valera.json` de Reina-Valera 1909)
 4. Ejecuta `openlyric`
 5. Desde el controlador: detecta monitores y abre el visor en el segundo monitor
 6. Selecciona fondo y avanza los versos con los controles
 7. Usa el selector de versión para cambiar entre versiones de la Biblia cargadas en `bibles/`
+8. Usa el panel lateral para ver y escoger la canción/capítulo actual
 
 ## Desarrollo
 

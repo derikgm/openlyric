@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -36,6 +37,14 @@ func (a *App) startup(ctx context.Context) {
 	a.biblesDir = "bibles"
 	a.bibles = []*BibleVersion{}
 	a.biblesMap = map[string]*BibleVersion{}
+
+	// Ensure the songs and bibles folders exist so users can add content later on.
+	if err := os.MkdirAll(a.songsDir, 0755); err != nil {
+		println("Error creating songs folder:", err.Error())
+	}
+	if err := os.MkdirAll(a.biblesDir, 0755); err != nil {
+		println("Error creating bibles folder:", err.Error())
+	}
 
 	// Open the lyrics viewer on the second monitor when one is available.
 	a.openViewerOnSecondMonitor(ctx)
@@ -206,6 +215,50 @@ func (a *App) LoadBibleSongs(abbreviation string) ([]*Song, error) {
 	}
 
 	return songs, nil
+}
+
+// CreateSong creates a new song from a title, an artist and its lyrics,
+// saving it into the songs directory as a .txt file.
+func (a *App) CreateSong(title string, artist string, lyrics string) (*Song, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, fmt.Errorf("song title is required")
+	}
+
+	slug := strings.Map(func(r rune) rune {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			return r
+		case (r >= 'A' && r <= 'Z'):
+			return unicode.ToLower(r)
+		default:
+			return -1
+		}
+	}, title)
+	if slug == "" {
+		slug = "cancion"
+	}
+
+	filename := slug + ".txt"
+	for i := 2; ; i++ {
+		if _, err := os.Stat(filepath.Join(a.songsDir, filename)); os.IsNotExist(err) {
+			break
+		}
+		filename = fmt.Sprintf("%s-%d.txt", slug, i)
+	}
+
+	content := fmt.Sprintf("Title: %s\nArtist: %s\n%s\n", title, artist, strings.TrimRight(strings.TrimSpace(lyrics), "\n"))
+	if err := os.WriteFile(filepath.Join(a.songsDir, filename), []byte(content), 0644); err != nil {
+		return nil, err
+	}
+
+	song, err := ParseSongFile(filepath.Join(a.songsDir, filename))
+	if err != nil {
+		return nil, err
+	}
+	song.ID = filename
+
+	return song, nil
 }
 
 // SetBackground stores the background image (data URL) selected by the user.

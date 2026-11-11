@@ -18,6 +18,8 @@
 - [x] Crear carpeta `songs/` y cargar canciones
 - [x] Listar canciones en el controlador
 - [x] Soporte de versiones de la Biblia (`bibles/`) ✅ (formato JSON tipo Reina-Valera, p. ej. `valera.json`)
+- [x] Crear carpeta `songs/` y `bibles/` automáticamente si no existen ✅
+- [x] Crear canciones con letra desde la app (`CreateSong`) ✅
 
 ## Fase 3: Visor de letras
 - [x] Implementar UI del visor
@@ -25,6 +27,8 @@
 - [x] Pantalla completa
 - [x] Seleccionar fondo
 - [x] Mostrar versos numerados de la Biblia (versiones cargadas desde `bibles/`) ✅
+- [x] Panel lateral izquierdo con lista de canciones / capítulos ✅ (y mensaje "No hay canciones." si no hay)
+- [x] Formulario para crear una nueva canción con letra desde la app ✅
 
 ## Fase 4: Controlador y monitores
 - [x] Detectar monitores ✅ (backend `GetScreens` + UI que lista monitores)

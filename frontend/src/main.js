@@ -1,7 +1,7 @@
 import './style.css';
 import './app.css';
 
-import {SetBackground, GetScreens, LoadBibleSongs, LoadBibleVersions} from '../wailsjs/go/main/App';
+import {SetBackground, GetScreens, LoadBibleSongs, LoadBibleVersions, CreateSong} from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
 
@@ -10,6 +10,7 @@ let versions = [];
 let selectedIndex = 0;
 let verses = [];
 let currentVerse = 0;
+let listTitle = 'Canciones';
 
 function splitVerses(lyrics) {
     const blocks = String(lyrics ?? '')
@@ -49,6 +50,34 @@ function selectSong(index) {
     verses = splitVerses(songs[index]?.lyrics ?? '');
     currentVerse = 0;
     render();
+    renderSongList();
+}
+
+function renderSongList() {
+    const songListTitleElement = document.getElementById('song-list-title');
+    const songListItemsElement = document.getElementById('song-list-items');
+
+    songListTitleElement.innerText = listTitle;
+
+    songListItemsElement.innerHTML = '';
+
+    if (songs.length === 0) {
+        const emptyElement = document.createElement('div');
+        emptyElement.id = 'song-list-empty';
+        emptyElement.innerText = 'No hay canciones.';
+        songListItemsElement.appendChild(emptyElement);
+        return;
+    }
+
+    for (let i = 0; i < songs.length; i++) {
+        const song = songs[i];
+        const itemElement = document.createElement('div');
+        itemElement.className = 'song-list-item' + (i === selectedIndex ? ' active' : '');
+        itemElement.innerText = song.title ?? '';
+        itemElement.dataset.index = String(i);
+        itemElement.addEventListener('click', () => selectSong(Number(itemElement.dataset.index)));
+        songListItemsElement.appendChild(itemElement);
+    }
 }
 
 function renderScreens(screens) {
@@ -88,6 +117,7 @@ async function loadVersionSongs(version) {
         return;
     }
 
+    listTitle = version.translation ?? version.abbreviation;
     selectSong(0);
 }
 
@@ -117,6 +147,7 @@ async function init() {
 
         if (versions.length === 0) {
             render();
+            renderSongList();
             statusElement.innerText = 'No se encontraron versiones de la Biblia.';
             return;
         }
@@ -154,6 +185,22 @@ async function init() {
 
 appElement.innerHTML = `
     <div id="viewer">
+        <aside id="song-list">
+            <div id="song-list-header">
+                <span id="song-list-title">Canciones</span>
+                <button id="new-song-button">+ Nueva</button>
+            </div>
+            <div id="song-list-items"></div>
+            <div id="new-song-form" style="display: none;">
+                <input id="new-song-title" type="text" placeholder="Título" />
+                <input id="new-song-artist" type="text" placeholder="Artista / Autor" />
+                <textarea id="new-song-lyrics" placeholder="Letra de la canción..."></textarea>
+                <div id="new-song-actions">
+                    <button id="new-song-save">Guardar</button>
+                    <button id="new-song-cancel">Cancelar</button>
+                </div>
+            </div>
+        </aside>
         <header id="song-header">
             <h1 id="song-title">OpenLyric</h1>
             <div id="song-info">Cargando...</div>
@@ -184,6 +231,17 @@ const backgroundInput = document.getElementById('background-input');
 const statusElement = document.getElementById('status');
 const screensElement = document.getElementById('screens');
 const viewerElement = document.getElementById('viewer');
+const songListElement = document.getElementById('song-list');
+const songListTitleElement = document.getElementById('song-list-title');
+const songListItemsElement = document.getElementById('song-list-items');
+const newSongButton = document.getElementById('new-song-button');
+const newSongForm = document.getElementById('new-song-form');
+const newSongTitleElement = document.getElementById('new-song-title');
+const newSongArtistElement = document.getElementById('new-song-artist');
+const newSongLyricsElement = document.getElementById('new-song-lyrics');
+const newSongSaveButton = document.getElementById('new-song-save');
+const newSongCancelButton = document.getElementById('new-song-cancel');
+const versionSelectElement = document.getElementById('version-select');
 
 nextVerseButton.addEventListener('click', () => {
     if (verses.length === 0) return;
@@ -200,6 +258,46 @@ prevVerseButton.addEventListener('click', () => {
 });
 
 backgroundButton.addEventListener('click', () => backgroundInput.click());
+
+newSongButton.addEventListener('click', () => {
+    newSongForm.style.display = 'block';
+});
+
+newSongCancelButton.addEventListener('click', () => {
+    newSongForm.style.display = 'none';
+    newSongTitleElement.value = '';
+    newSongArtistElement.value = '';
+    newSongLyricsElement.value = '';
+});
+
+newSongSaveButton.addEventListener('click', async () => {
+    const title = newSongTitleElement.value.trim();
+    const artist = newSongArtistElement.value.trim();
+    const lyrics = newSongLyricsElement.value;
+
+    if (!title) {
+        statusElement.innerText = 'El título es obligatorio.';
+        return;
+    }
+
+    try {
+        const createdSong = await CreateSong(title, artist, lyrics);
+        songs = [createdSong];
+        selectedIndex = 0;
+        verses = splitVerses(createdSong.lyrics ?? '');
+        currentVerse = 0;
+        listTitle = 'Canción';
+        render();
+        renderSongList();
+        newSongForm.style.display = 'none';
+        newSongTitleElement.value = '';
+        newSongArtistElement.value = '';
+        newSongLyricsElement.value = '';
+        statusElement.innerText = 'Canción creada.';
+    } catch (error) {
+        statusElement.innerText = 'Error al crear la canción.';
+    }
+});
 
 backgroundInput.addEventListener('change', async (event) => {
     const file = event.target.files && event.target.files[0];

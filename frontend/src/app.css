@@ -101,6 +101,108 @@
     display: none;
 }
 
+#song-list {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 3;
+    background-color: rgba(0, 0, 0, 0.75);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+#song-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+#song-list-title {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+#new-song-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+}
+
+#new-song-button:hover {
+    background-color: rgba(255, 255, 255, 0.35);
+}
+
+#song-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.song-list-item {
+    padding: 0.75rem;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.song-list-item:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.song-list-item.active {
+    background-color: rgba(255, 255, 255, 0.35);
+}
+
+#song-list-empty {
+    padding: 1rem;
+    font-size: 1rem;
+    opacity: 0.8;
+}
+
+#new-song-form input,
+#new-song-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+#new-song-form textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+#new-song-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#new-song-actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+}
+
 #version-controls {
     position: absolute;
     top: 1rem;
