@@ -21,6 +21,8 @@ export function LoadBibleVersions():Promise<Array<main.BibleVersion>>;
 
 export function LoadSongs():Promise<Array<main.Song>>;
 
+export function OpenDonationPage():Promise<void>;
+
 export function SetBackground(arg1:string):Promise<void>;
 
-export function SetBackgroundFromFile(arg1:string):Promise<void>;
+export function SetBackgroundFromFile(arg1:string):Promise<string>;

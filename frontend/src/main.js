@@ -8,10 +8,10 @@ import {
   CreateSong,
   SetBackground,
   SetBackgroundFromFile,
-  GetScreens,
   HasSecondMonitor,
   GetBackground,
   LoadBackgrounds,
+  OpenDonationPage,
 } from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
@@ -37,8 +37,16 @@ let hasSecondMonitor = false;
 let currentVersionIndex = 0;
 let currentBookIndex = 0;
 let currentChapterIndex = 0;
-let bibleVerses = [];
 let currentVerseIndex = 0;
+let bibleVerses = [];
+let bibleVerseNumbers = [];
+let bibleSongs = [];
+let bibleBooksMap = {};
+let bibleBookNames = [];
+let currentBookName = '';
+let currentChapterSongs = [];
+let bibleVersionLoaded = '';
+let bibleLoading = false;
 
 // Opciones / UI
 let autoAdvance = false;
@@ -80,8 +88,10 @@ const i18n = {
     background: 'Fondo',
     selectBackground: 'Seleccionar fondo',
     backgroundUpdated: 'Fondo actualizado.',
+    backgroundHelp: 'Elige una imagen de tu equipo para mostrarla como fondo de proyección. También puedes elegir una foto de la galería en la pestaña Liricas.',
     errorBackground: 'Error al seleccionar el fondo.',
     language: 'Idioma',
+    languageHelp: 'Idioma de la interfaz y de los textos de la aplicación.',
     langEs: 'ES',
     langEn: 'EN',
     donations: 'Donaciones',
@@ -92,9 +102,12 @@ const i18n = {
     screens: 'Monitores',
     noScreens: 'No se detectaron monitores.',
     noSecondMonitorTitle: 'No tienes segundo monitor para proyectar',
-    noSecondMonitorMsg: 'OpenLyric requiere un segundo monitor o proyector para mostrar las letras. Conecta un segundo monitor y reinicia la aplicación.',
-    noSecondMonitorHint: 'Puedes usar Opciones para cambiar el idioma, pero no podrás proyectar letras sin una segunda pantalla.',
+    noSecondMonitorMsg: 'OpenLyric necesita un segundo monitor o proyector para mostrar las letras. Puedes seguir usando la app para preparar canciones y opciones.',
+    noSecondMonitorHint: 'Conecta un segundo monitor y pulsa «Reintentar detección».',
     retryDetection: 'Reintentar detección',
+    monitorDetected: 'Segundo monitor detectado.',
+    monitorNotDetected: 'Aún no se detecta un segundo monitor.',
+    monitorError: 'Error al detectar monitores.',
     errorLoading: 'Error al cargar.',
     errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
   },
@@ -131,8 +144,10 @@ const i18n = {
     background: 'Background',
     selectBackground: 'Select background',
     backgroundUpdated: 'Background updated.',
+    backgroundHelp: 'Choose an image from your computer to use as the projection background. You can also pick a photo from the gallery in the Lyrics tab.',
     errorBackground: 'Error selecting background.',
     language: 'Language',
+    languageHelp: 'Language used by the interface and app texts.',
     langEs: 'ES',
     langEn: 'EN',
     donations: 'Donations',
@@ -143,9 +158,12 @@ const i18n = {
     screens: 'Monitors',
     noScreens: 'No monitors detected.',
     noSecondMonitorTitle: 'No second monitor to project',
-    noSecondMonitorMsg: 'OpenLyric requires a second monitor or projector to display lyrics. Connect a second monitor and restart the application.',
-    noSecondMonitorHint: 'You can use Options to change the language, but you will not be able to project lyrics without a second screen.',
+    noSecondMonitorMsg: 'OpenLyric needs a second monitor or projector to display lyrics. You can still use the app to prepare songs and options.',
+    noSecondMonitorHint: 'Connect a second monitor and press "Retry detection".',
     retryDetection: 'Retry detection',
+    monitorDetected: 'Second monitor detected.',
+    monitorNotDetected: 'No second monitor detected yet.',
+    monitorError: 'Error detecting monitors.',
     errorLoading: 'Error loading.',
     errorLoadingVersion: 'Error loading Bible version.',
   },
@@ -159,6 +177,48 @@ function t(key) {
 function setLang(newLang) {
   lang = newLang;
   localStorage.setItem('openlyric:lang', lang);
+}
+
+// Actualiza todos los textos estáticos (los que no se reconstruyen en cada render).
+function applyI18n() {
+  document.getElementById('tab-lyricas').innerText = t('tabLyricas');
+  document.getElementById('tab-biblia').innerText = t('tabBiblia');
+  document.getElementById('tab-opciones').innerText = t('tabOpciones');
+
+  // Liricas
+  document.getElementById('lyricas-new-title').placeholder = t('title');
+  document.getElementById('lyricas-new-artist').placeholder = t('artist');
+  document.getElementById('lyricas-new-lyrics').placeholder = t('lyrics');
+  document.getElementById('lyricas-new-save').innerText = t('save');
+  document.getElementById('lyricas-new-cancel').innerText = t('cancel');
+  document.getElementById('lyricas-prev-block').innerText = t('prevBlock');
+  document.getElementById('lyricas-next-block').innerText = t('nextBlock');
+
+  // Biblia
+  document.getElementById('biblia-version-label').innerText = t('version');
+  document.getElementById('biblia-prev-verse').innerText = t('prevBlock');
+  document.getElementById('biblia-next-verse').innerText = t('nextBlock');
+
+  // Opciones
+  document.getElementById('opciones-title').innerText = t('tabOpciones');
+  document.getElementById('opciones-bg-title').innerText = t('background');
+  document.getElementById('opciones-bg-help').innerText = t('backgroundHelp');
+  document.getElementById('opciones-lang-title').innerText = t('language');
+  document.getElementById('opciones-lang-help').innerText = t('languageHelp');
+  document.getElementById('opciones-donations-title').innerText = t('donations');
+  document.getElementById('opciones-donations-text').innerText = t('donationsText');
+  document.getElementById('opciones-donate').innerText = t('donateBtn');
+
+  // Cartel de segundo monitor
+  document.getElementById('monitor-warning-title').innerText = t('noSecondMonitorTitle');
+  document.getElementById('monitor-warning-msg').innerText = t('noSecondMonitorMsg');
+  document.getElementById('monitor-warning-hint').innerText = t('noSecondMonitorHint');
+  document.getElementById('retry-monitor').innerText = t('retryDetection');
+
+  // Auto-avance
+  document.getElementById('auto-advance-button').innerText = autoAdvance
+    ? t('autoAdvanceOn')
+    : t('autoAdvanceOff');
 }
 
 // ---------- Utilidades ----------
@@ -179,16 +239,40 @@ function clearAutoAdvance() {
 
 function startAutoAdvance() {
   clearAutoAdvance();
+  if (currentTab === 'opciones') return;
+
   const items = currentTab === 'biblia' ? bibleVerses : blocks;
-  if (items.length === 0) return;
+  if (!items || items.length === 0) return;
+
   autoAdvanceTimer = setInterval(() => {
     if (currentTab === 'biblia') {
+      if (bibleVerses.length === 0) return;
       currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
+      renderBiblePane();
     } else {
+      if (blocks.length === 0) return;
       currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
+      renderLyricas();
     }
-    render();
   }, 8000);
+}
+
+function restartAutoAdvanceIfNeeded() {
+  if (autoAdvance) startAutoAdvance();
+}
+
+// ---------- Fondos ----------
+function applyBackground(value) {
+  const root = document.getElementById('app');
+  if (!root) return;
+
+  if (!value) {
+    root.style.backgroundImage = '';
+    return;
+  }
+
+  const url = value.startsWith('data:') ? value : `backgrounds/${value}`;
+  root.style.backgroundImage = `url("${url}")`;
 }
 
 // ---------- Render ----------
@@ -220,6 +304,7 @@ function renderLyricas() {
   if (songs.length === 0) {
     const empty = document.createElement('div');
     empty.id = 'lyricas-empty';
+    empty.className = 'empty-hint';
     empty.innerText = t('noSongs');
     songListEl.appendChild(empty);
   } else {
@@ -231,14 +316,17 @@ function renderLyricas() {
       item.addEventListener('click', () => selectLyricasSong(Number(item.dataset.index)));
       songListEl.appendChild(item);
     }
-    const newBtn = document.createElement('button');
-    newBtn.id = 'lyricas-new-song';
-    newBtn.innerText = t('newSong');
-    newBtn.addEventListener('click', () => {
-      document.getElementById('lyricas-new-song-form').style.display = 'block';
-    });
-    songListEl.appendChild(newBtn);
   }
+
+  // El botón de nueva canción debe existir siempre, aunque no haya canciones.
+  const newBtn = document.createElement('button');
+  newBtn.id = 'lyricas-new-song';
+  newBtn.className = 'secondary-button';
+  newBtn.innerText = t('newSong');
+  newBtn.addEventListener('click', () => {
+    document.getElementById('lyricas-new-song-form').style.display = 'block';
+  });
+  songListEl.appendChild(newBtn);
 
   // Bloques de la canción seleccionada
   blocksEl.innerHTML = '';
@@ -249,9 +337,12 @@ function renderLyricas() {
 
     blocks = splitBlocks(song.lyrics ?? '');
 
+    if (currentBlockIndex >= blocks.length) currentBlockIndex = 0;
+
     if (blocks.length === 0) {
       const empty = document.createElement('div');
       empty.id = 'lyricas-no-blocks';
+      empty.className = 'empty-hint';
       empty.innerText = t('noBlocks');
       blocksEl.appendChild(empty);
     } else {
@@ -269,7 +360,7 @@ function renderLyricas() {
     controlsEl.style.display = 'flex';
 
     if (blocks.length > 0) {
-      displayEl.innerText = blocks[currentBlockIndex];
+      displayEl.innerText = blocks[currentBlockIndex] ?? '';
     } else {
       displayEl.innerText = '';
     }
@@ -285,20 +376,39 @@ function selectLyricasSong(index) {
   if (songs.length === 0) return;
   currentSongIndex = index;
   currentBlockIndex = 0;
-  render();
+  renderLyricas();
+  restartAutoAdvanceIfNeeded();
 }
 
 function selectLyricasBlock(index) {
   if (blocks.length === 0) return;
   currentBlockIndex = index;
-  render();
-  if (autoAdvance) startAutoAdvance();
+  renderLyricas();
+  restartAutoAdvanceIfNeeded();
+}
+
+function prevLyricasBlock() {
+  if (blocks.length === 0) return;
+  currentBlockIndex = (currentBlockIndex - 1 + blocks.length) % blocks.length;
+  renderLyricas();
+  restartAutoAdvanceIfNeeded();
+}
+
+function nextLyricasBlock() {
+  if (blocks.length === 0) return;
+  currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
+  renderLyricas();
+  restartAutoAdvanceIfNeeded();
 }
 
 // ---------- Fondos (galería de imágenes) ----------
 async function loadBackgrounds() {
   const loaded = await LoadBackgrounds();
   backgrounds = loaded ?? [];
+
+  const saved = localStorage.getItem('openlyric:bg-file');
+  currentBackgroundIndex = saved ? backgrounds.indexOf(saved) : -1;
+
   renderBackgrounds();
 }
 
@@ -314,6 +424,7 @@ function renderBackgrounds() {
   if (backgrounds.length === 0) {
     const empty = document.createElement('div');
     empty.id = 'lyricas-no-backgrounds';
+    empty.className = 'empty-hint';
     empty.innerText = t('noBackgrounds');
     bgEl.appendChild(empty);
     return;
@@ -324,57 +435,47 @@ function renderBackgrounds() {
     item.className = 'lyricas-bg-item' + (i === currentBackgroundIndex ? ' active' : '');
     item.innerText = backgrounds[i];
     item.dataset.index = String(i);
-    item.addEventListener('click', async () => {
-      await selectBackground(Number(item.dataset.index));
-    });
+    item.title = backgrounds[i];
+    item.addEventListener('click', () => selectBackground(Number(item.dataset.index)));
     bgEl.appendChild(item);
   }
 }
 
 async function selectBackground(index) {
   if (backgrounds.length === 0) return;
+
+  const filename = backgrounds[index];
+  if (!filename) return;
+
   currentBackgroundIndex = index;
-  const filename = backgrounds[currentBackgroundIndex];
+  const statusEl = document.getElementById('lyricas-bg-status');
 
   try {
-    await SetBackgroundFromFile(filename);
-    localStorage.setItem('openlyric:background', filename);
-    const viewer = document.getElementById('viewer');
-    if (viewer) {
-      viewer.style.backgroundImage = `url('backgrounds/${filename}')`;
-    }
+    const dataUrl = await SetBackgroundFromFile(filename);
+    localStorage.setItem('openlyric:bg-file', filename);
+    applyBackground(dataUrl || '');
     renderBackgrounds();
-    document.getElementById('lyricas-status').innerText = 'Fondo: ' + filename;
+    if (statusEl) statusEl.innerText = `${t('background')}: ${filename}`;
   } catch (err) {
-    document.getElementById('lyricas-status').innerText = t('errorBackground');
+    if (statusEl) statusEl.innerText = t('errorBackground');
   }
-}
-
-function prevLyricasBlock() {
-  if (blocks.length === 0) return;
-  currentBlockIndex = (currentBlockIndex - 1 + blocks.length) % blocks.length;
-  render();
-  if (autoAdvance) startAutoAdvance();
-}
-
-function nextLyricasBlock() {
-  if (blocks.length === 0) return;
-  currentBlockIndex = (currentBlockIndex + 1) % blocks.length;
-  render();
-  if (autoAdvance) startAutoAdvance();
 }
 
 // ---------- Biblia ----------
 async function loadBibleVersions() {
   const loaded = await LoadBibleVersions();
   versions = loaded ?? [];
+
   const selectEl = document.getElementById('biblia-version-select');
   selectEl.innerHTML = '';
+
   if (versions.length === 0) {
     document.getElementById('biblia-no-versions').style.display = 'block';
     return;
   }
+
   document.getElementById('biblia-no-versions').style.display = 'none';
+
   for (const v of versions) {
     const o = document.createElement('option');
     o.value = v.abbreviation;
@@ -383,17 +484,100 @@ async function loadBibleVersions() {
   }
 }
 
+function buildBibleBooks() {
+  bibleBooksMap = {};
+  bibleBookNames = [];
+
+  for (const song of bibleSongs) {
+    const title = song.title ?? '';
+    const bookName = title.replace(/\s*\d+\s*$/, '').trim() || title;
+
+    if (!bibleBooksMap[bookName]) {
+      bibleBooksMap[bookName] = [];
+      bibleBookNames.push(bookName);
+    }
+    bibleBooksMap[bookName].push(song);
+  }
+}
+
+function setChapterVerses() {
+  const song = currentChapterSongs[currentChapterIndex];
+  if (!song) {
+    bibleVerses = [];
+    bibleVerseNumbers = [];
+    return;
+  }
+
+  bibleVerses = splitBlocks(song.lyrics ?? '');
+  bibleVerseNumbers = Array.isArray(song.verseNumbers) ? song.verseNumbers : [];
+
+  if (currentVerseIndex >= bibleVerses.length) currentVerseIndex = 0;
+}
+
 async function selectBibleVersion(abbrev) {
   const v = versions.find((x) => x.abbreviation === abbrev);
   if (!v) return;
+
   currentVersionIndex = versions.findIndex((x) => x.abbreviation === abbrev);
   localStorage.setItem('openlyric:version', abbrev);
+  bibleVersionLoaded = abbrev;
 
-  const loadedSongs = await LoadBibleSongs(abbrev);
-  renderBibliaBooks(loadedSongs ?? []);
+  bibleSongs = (await LoadBibleSongs(abbrev)) ?? [];
+  buildBibleBooks();
+
+  currentBookIndex = 0;
+  currentChapterIndex = 0;
+  currentVerseIndex = 0;
+  currentBookName = bibleBookNames[0] ?? '';
+  currentChapterSongs = currentBookName ? bibleBooksMap[currentBookName] : [];
+  setChapterVerses();
+
+  renderBiblePane();
+  restartAutoAdvanceIfNeeded();
 }
 
-function renderBibliaBooks(songsList) {
+function renderBiblia() {
+  // Evita recargas duplicadas si se llama varias veces seguidas.
+  if (bibleLoading) return;
+
+  const noVersionsEl = document.getElementById('biblia-no-versions');
+
+  if (versions.length === 0) {
+    if (noVersionsEl) noVersionsEl.style.display = 'block';
+    return;
+  }
+  if (noVersionsEl) noVersionsEl.style.display = 'none';
+
+  const saved = localStorage.getItem('openlyric:version');
+  const preferred =
+    versions.find((v) => v.abbreviation === saved) ||
+    versions[currentVersionIndex] ||
+    versions[0];
+
+  const versionSelect = document.getElementById('biblia-version-select');
+  if (versionSelect) versionSelect.value = preferred.abbreviation;
+
+  if (bibleVersionLoaded !== preferred.abbreviation) {
+    bibleLoading = true;
+    selectBibleVersion(preferred.abbreviation)
+      .catch((err) => {
+        console.error(err);
+        bibleVersionLoaded = '';
+        bibleSongs = [];
+        buildBibleBooks();
+        const booksEl = document.getElementById('biblia-books');
+        if (booksEl) booksEl.innerText = t('errorLoadingVersion');
+      })
+      .finally(() => {
+        bibleLoading = false;
+      });
+    return;
+  }
+
+  renderBiblePane();
+}
+
+function renderBiblePane() {
   const booksEl = document.getElementById('biblia-books');
   const chaptersEl = document.getElementById('biblia-chapters');
   const versesEl = document.getElementById('biblia-verses');
@@ -401,174 +585,155 @@ function renderBibliaBooks(songsList) {
   const titleEl = document.getElementById('biblia-song-title');
   const controlsEl = document.getElementById('biblia-controls');
 
+  // Libros
   booksEl.innerHTML = '';
-  chaptersEl.innerHTML = '';
-  versesEl.innerHTML = '';
-  displayEl.innerText = '';
-  titleEl.innerText = '';
-  controlsEl.style.display = 'none';
-
   const hBooks = document.createElement('h3');
   hBooks.innerText = t('books');
   booksEl.appendChild(hBooks);
 
-  if (songsList.length === 0) {
+  if (bibleBookNames.length === 0) {
     const empty = document.createElement('div');
-    empty.innerText = t('noVersions');
+    empty.className = 'empty-hint';
+    empty.innerText = t('noVerses');
     booksEl.appendChild(empty);
-    return;
+  } else {
+    for (let i = 0; i < bibleBookNames.length; i++) {
+      const name = bibleBookNames[i];
+      const item = document.createElement('div');
+      item.className = 'lyricas-item' + (name === currentBookName ? ' active' : '');
+      item.innerText = name;
+      item.dataset.book = name;
+      item.addEventListener('click', () => selectBibleBook(name));
+      booksEl.appendChild(item);
+    }
   }
 
-  // Agrupar por libro
-  const booksMap = {};
-  for (const s of songsList) {
-    const bookName = s.title?.split(' ').slice(0, -1).join(' ') || s.title;
-    if (!booksMap[bookName]) booksMap[bookName] = [];
-    booksMap[bookName].push(s);
-  }
-
-  const bookNames = Object.keys(booksMap);
-  for (const name of bookNames) {
-    const item = document.createElement('div');
-    item.className = 'lyricas-item' + (currentBookIndex === bookNames.indexOf(name) ? ' active' : '');
-    item.innerText = name;
-    item.dataset.book = name;
-    item.addEventListener('click', () => {
-      currentBookIndex = bookNames.indexOf(name);
-      renderBibliaChapters(booksMap[name]);
-    });
-    booksEl.appendChild(item);
-  }
-
-  if (bookNames.length > 0) {
-    renderBibliaChapters(booksMap[bookNames[0]]);
-  }
-}
-
-function renderBibliaChapters(chapterSongs) {
-  const chaptersEl = document.getElementById('biblia-chapters');
-  const versesEl = document.getElementById('biblia-verses');
-  const displayEl = document.getElementById('biblia-block-display');
-  const titleEl = document.getElementById('biblia-song-title');
-  const controlsEl = document.getElementById('biblia-controls');
-
+  // Capítulos del libro actual
   chaptersEl.innerHTML = '';
-  versesEl.innerHTML = '';
-  displayEl.innerText = '';
-  titleEl.innerText = '';
-  controlsEl.style.display = 'none';
-
   const hChapters = document.createElement('h3');
   hChapters.innerText = t('chapters');
   chaptersEl.appendChild(hChapters);
 
-  for (let i = 0; i < chapterSongs.length; i++) {
-    const item = document.createElement('div');
-    item.className = 'lyricas-item' + (currentChapterIndex === i ? ' active' : '');
-    item.innerText = chapterSongs[i].title ?? '';
-    item.dataset.index = String(i);
-    item.addEventListener('click', () => {
-      currentChapterIndex = Number(item.dataset.index);
-      renderBibliaVerses(chapterSongs[currentChapterIndex]);
-    });
-    chaptersEl.appendChild(item);
+  if (currentChapterSongs.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint';
+    empty.innerText = t('noVerses');
+    chaptersEl.appendChild(empty);
+  } else {
+    for (let i = 0; i < currentChapterSongs.length; i++) {
+      const item = document.createElement('div');
+      item.className = 'lyricas-item' + (i === currentChapterIndex ? ' active' : '');
+      item.innerText = currentChapterSongs[i].title ?? '';
+      item.dataset.index = String(i);
+      item.addEventListener('click', () => selectBibleChapter(i));
+      chaptersEl.appendChild(item);
+    }
   }
 
-  if (chapterSongs.length > 0) {
-    renderBibliaVerses(chapterSongs[0]);
-  }
-}
-
-function renderBibliaVerses(song) {
-  const versesEl = document.getElementById('biblia-verses');
-  const displayEl = document.getElementById('biblia-block-display');
-  const titleEl = document.getElementById('biblia-song-title');
-  const controlsEl = document.getElementById('biblia-controls');
-
+  // Versículos del capítulo actual
   versesEl.innerHTML = '';
   displayEl.innerText = '';
-  titleEl.innerText = song.title ?? '';
-  controlsEl.style.display = 'flex';
 
-  bibleVerses = splitBlocks(song.lyrics ?? '');
-  currentVerseIndex = 0;
+  const song = currentChapterSongs[currentChapterIndex];
+
+  if (!song) {
+    titleEl.innerText = '';
+    controlsEl.style.display = 'none';
+    return;
+  }
+
+  titleEl.innerText = song.title ?? '';
 
   if (bibleVerses.length === 0) {
     const empty = document.createElement('div');
+    empty.className = 'empty-hint';
     empty.innerText = t('noVerses');
     versesEl.appendChild(empty);
+    controlsEl.style.display = 'none';
     return;
   }
 
   for (let i = 0; i < bibleVerses.length; i++) {
     const item = document.createElement('div');
     item.className = 'lyricas-block' + (i === currentVerseIndex ? ' active' : '');
-    item.innerText = `${t('verse')} ${i + 1}`;
+    const verseNumber = bibleVerseNumbers[i] ?? i + 1;
+    item.innerText = `${t('verse')} ${verseNumber}`;
     item.dataset.index = String(i);
     item.addEventListener('click', () => {
       currentVerseIndex = Number(item.dataset.index);
-      render();
+      renderBiblePane();
+      restartAutoAdvanceIfNeeded();
     });
     versesEl.appendChild(item);
   }
 
-  displayEl.innerText = bibleVerses[0];
+  displayEl.innerText = bibleVerses[currentVerseIndex] ?? '';
+  controlsEl.style.display = 'flex';
 }
 
-function renderBiblia() {
-  const noVersionsEl = document.getElementById('biblia-no-versions');
-  const versionSelect = document.getElementById('biblia-version-select');
-  const saved = localStorage.getItem('openlyric:version');
-  if (saved && versions.length > 0) {
-    const found = versions.find((v) => v.abbreviation === saved);
-    if (found) {
-      versionSelect.value = saved;
-      currentVersionIndex = versions.findIndex((v) => v.abbreviation === saved);
-    }
-  }
-  if (versions.length > 0) {
-    selectBibleVersion(versions[currentVersionIndex]?.abbreviation || versions[0].abbreviation);
-  }
+function selectBibleBook(name) {
+  currentBookIndex = bibleBookNames.indexOf(name);
+  currentBookName = name;
+  currentChapterSongs = bibleBooksMap[name] ?? [];
+  currentChapterIndex = 0;
+  currentVerseIndex = 0;
+  setChapterVerses();
+  renderBiblePane();
+  restartAutoAdvanceIfNeeded();
+}
+
+function selectBibleChapter(index) {
+  if (!currentChapterSongs[index]) return;
+  currentChapterIndex = index;
+  currentVerseIndex = 0;
+  setChapterVerses();
+  renderBiblePane();
+  restartAutoAdvanceIfNeeded();
 }
 
 function prevBibliaVerse() {
   if (bibleVerses.length === 0) return;
   currentVerseIndex = (currentVerseIndex - 1 + bibleVerses.length) % bibleVerses.length;
-  render();
-  if (autoAdvance) startAutoAdvance();
+  renderBiblePane();
+  restartAutoAdvanceIfNeeded();
 }
 
 function nextBibliaVerse() {
   if (bibleVerses.length === 0) return;
   currentVerseIndex = (currentVerseIndex + 1) % bibleVerses.length;
-  render();
-  if (autoAdvance) startAutoAdvance();
+  renderBiblePane();
+  restartAutoAdvanceIfNeeded();
 }
 
 // ---------- Opciones ----------
 function renderOpciones() {
-  const savedBg = localStorage.getItem('openlyric:background');
-  const bgInput = document.getElementById('opciones-background');
-  if (savedBg) {
-    document.getElementById('viewer').style.backgroundImage = savedBg;
-  }
   const langSel = document.getElementById('opciones-lang');
-  langSel.value = lang;
+  if (langSel) langSel.value = lang;
 }
 
 // ---------- Navegación ----------
 function showTab(tab) {
   currentTab = tab;
+
   document.querySelectorAll('#topbar-tabs .tab').forEach((el) => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
+
   document.querySelectorAll('#content section.view').forEach((el) => {
     el.style.display = 'none';
   });
-  document.getElementById(`view-${tab}`).style.display = 'block';
+  document.getElementById(`view-${tab}`).style.display = 'flex';
+
+  // El control de auto-avance no aplica en Opciones.
+  const globalControls = document.getElementById('global-controls');
+  if (globalControls) globalControls.style.display = tab === 'opciones' ? 'none' : 'flex';
+
+  updateSecondMonitorWarning();
+
   clearAutoAdvance();
   render();
-  updateSecondMonitorWarning();
+
+  if (autoAdvance && tab !== 'opciones') startAutoAdvance();
 }
 
 // Muestra u oculta la advertencia de segundo monitor según la pestaña activa.
@@ -577,40 +742,28 @@ function updateSecondMonitorWarning() {
   const warningEl = document.getElementById('monitor-warning');
   if (!warningEl) return;
 
-  if (!hasSecondMonitor && (currentTab === 'lyricas' || currentTab === 'biblia')) {
-    warningEl.style.display = 'flex';
-  } else {
-    warningEl.style.display = 'none';
-  }
+  const show = !hasSecondMonitor && (currentTab === 'lyricas' || currentTab === 'biblia');
+  warningEl.style.display = show ? 'flex' : 'none';
+  warningEl.classList.toggle('biblia', currentTab === 'biblia');
 }
 
 // ---------- Inicialización ----------
 async function init() {
   // Topbar
-  document.getElementById('tab-lyricas').innerText = t('tabLyricas');
-  document.getElementById('tab-biblia').innerText = t('tabBiblia');
-  document.getElementById('tab-opciones').innerText = t('tabOpciones');
-
   document.getElementById('tab-lyricas').addEventListener('click', () => showTab('lyricas'));
   document.getElementById('tab-biblia').addEventListener('click', () => showTab('biblia'));
   document.getElementById('tab-opciones').addEventListener('click', () => showTab('opciones'));
 
   // Validar que exista segundo monitor para proyectar
   try {
-    const result = await HasSecondMonitor();
-    hasSecondMonitor = !!result;
+    hasSecondMonitor = !!(await HasSecondMonitor());
   } catch (e) {
     hasSecondMonitor = false;
   }
 
-  // Si no hay segundo monitor, mostrar advertencia en las pestañas de proyección
-  // pero no bloquear el acceso a Opciones ni a crear canciones
-  updateSecondMonitorWarning();
-
   // Cargar canciones
   try {
-    const loaded = await LoadSongs();
-    songs = loaded ?? [];
+    songs = (await LoadSongs()) ?? [];
   } catch (e) {
     songs = [];
   }
@@ -622,40 +775,58 @@ async function init() {
     backgrounds = [];
   }
 
-  // Cargar versiones
+  // Restaurar el fondo persistido por el backend
+  try {
+    const bg = await GetBackground();
+    if (bg) applyBackground(bg);
+  } catch (e) {
+    // Sin fondo persistido.
+  }
+
+  // Cargar versiones de la Biblia
   try {
     await loadBibleVersions();
   } catch (e) {
     versions = [];
   }
 
-  // Opciones UI
-  document.getElementById('opciones-lang').value = lang;
+  // Idioma
   document.getElementById('opciones-lang').addEventListener('change', (e) => {
     setLang(e.target.value);
-    document.getElementById('tab-lyricas').innerText = t('tabLyricas');
-    document.getElementById('tab-biblia').innerText = t('tabBiblia');
-    document.getElementById('tab-opciones').innerText = t('tabOpciones');
+    applyI18n();
     render();
   });
 
-  // Fondo
-  document.getElementById('opciones-background').addEventListener('change', async (e) => {
+  // Fondo (archivo local)
+  document.getElementById('opciones-background').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result;
+
+    const statusEl = document.getElementById('opciones-status');
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      try {
+        const dataUrl = String(reader.result ?? '');
         await SetBackground(dataUrl);
-        localStorage.setItem('openlyric:background', dataUrl);
-        document.getElementById('viewer').style.backgroundImage = dataUrl;
-        document.getElementById('opciones-status').innerText = t('backgroundUpdated');
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      document.getElementById('opciones-status').innerText = t('errorBackground');
-    }
+        applyBackground(dataUrl);
+        if (statusEl) statusEl.innerText = t('backgroundUpdated');
+      } catch (err) {
+        if (statusEl) statusEl.innerText = t('errorBackground');
+      } finally {
+        // Permite volver a elegir el mismo archivo.
+        e.target.value = '';
+      }
+    };
+    reader.onerror = () => {
+      if (statusEl) statusEl.innerText = t('errorBackground');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Donaciones
+  document.getElementById('opciones-donate').addEventListener('click', () => {
+    OpenDonationPage();
   });
 
   // Nueva canción (Liricas)
@@ -670,23 +841,33 @@ async function init() {
     const title = document.getElementById('lyricas-new-title').value.trim();
     const artist = document.getElementById('lyricas-new-artist').value.trim();
     const lyrics = document.getElementById('lyricas-new-lyrics').value;
+    const statusEl = document.getElementById('lyricas-status');
+
     if (!title) {
-      document.getElementById('lyricas-status').innerText = t('titleRequired');
+      if (statusEl) statusEl.innerText = t('titleRequired');
       return;
     }
+
     try {
       const created = await CreateSong(title, artist, lyrics);
-      songs = [created];
-      currentSongIndex = 0;
+
+      // Recargar todas las canciones: antes se reemplazaba la lista por la nueva.
+      songs = (await LoadSongs()) ?? [];
+
+      const createdIndex = songs.findIndex((s) => s.id === created.id);
+      currentSongIndex = createdIndex >= 0 ? createdIndex : Math.max(0, songs.length - 1);
       currentBlockIndex = 0;
+
       document.getElementById('lyricas-new-song-form').style.display = 'none';
       document.getElementById('lyricas-new-title').value = '';
       document.getElementById('lyricas-new-artist').value = '';
       document.getElementById('lyricas-new-lyrics').value = '';
-      document.getElementById('lyricas-status').innerText = t('songCreated');
+
+      if (statusEl) statusEl.innerText = t('songCreated');
+
       showTab('lyricas');
     } catch (err) {
-      document.getElementById('lyricas-status').innerText = t('errorCreate');
+      if (statusEl) statusEl.innerText = t('errorCreate');
     }
   });
 
@@ -697,8 +878,17 @@ async function init() {
   // Controles Biblia
   document.getElementById('biblia-prev-verse').addEventListener('click', prevBibliaVerse);
   document.getElementById('biblia-next-verse').addEventListener('click', nextBibliaVerse);
-  document.getElementById('biblia-version-select').addEventListener('change', (e) => {
-    selectBibleVersion(e.target.value);
+  document.getElementById('biblia-version-select').addEventListener('change', async (e) => {
+    if (bibleLoading) return;
+    bibleLoading = true;
+    try {
+      await selectBibleVersion(e.target.value);
+    } catch (err) {
+      const booksEl = document.getElementById('biblia-books');
+      if (booksEl) booksEl.innerText = t('errorLoadingVersion');
+    } finally {
+      bibleLoading = false;
+    }
   });
 
   // Auto-avance (global)
@@ -712,46 +902,37 @@ async function init() {
 
   // Reintentar detección de segundo monitor
   document.getElementById('retry-monitor').addEventListener('click', async () => {
+    const statusEl = document.getElementById('monitor-warning-status');
+
     try {
-      const result = await HasSecondMonitor();
-      hasSecondMonitor = !!result;
-      updateSecondMonitorWarning();
-      if (hasSecondMonitor) {
-        document.getElementById('lyricas-status').innerText = 'Segundo monitor detectado.';
-      } else {
-        document.getElementById('lyricas-status').innerText = 'Aún no se detecta segundo monitor.';
+      hasSecondMonitor = !!(await HasSecondMonitor());
+      if (statusEl) {
+        statusEl.innerText = hasSecondMonitor ? t('monitorDetected') : t('monitorNotDetected');
       }
+      updateSecondMonitorWarning();
     } catch (e) {
       hasSecondMonitor = false;
+      if (statusEl) statusEl.innerText = t('monitorError');
       updateSecondMonitorWarning();
-      document.getElementById('lyricas-status').innerText = 'Error al detectar monitores.';
     }
   });
 
-  // Teclado
+  // Teclado (un único listener)
   document.addEventListener('keydown', (e) => {
     const target = e.target;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    if (currentTab === 'opciones') return;
+
     if (e.key === 'ArrowRight') {
       if (currentTab === 'biblia') nextBibliaVerse(); else nextLyricasBlock();
-    }
-    if (e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowLeft') {
       if (currentTab === 'biblia') prevBibliaVerse(); else prevLyricasBlock();
     }
   });
 
-  // Teclado
-  document.addEventListener('keydown', (e) => {
-    const target = e.target;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-    if (e.key === 'ArrowRight') {
-      if (currentTab === 'biblia') nextBibliaVerse(); else nextLyricasBlock();
-    }
-    if (e.key === 'ArrowLeft') {
-      if (currentTab === 'biblia') prevBibliaVerse(); else prevLyricasBlock();
-    }
-  });
-
+  applyI18n();
   showTab(currentTab);
 }
 
@@ -763,37 +944,38 @@ appElement.innerHTML = `
       <button id="tab-opciones" class="tab" data-tab="opciones">${t('tabOpciones')}</button>
     </div>
   </nav>
-  <div id="monitor-warning" style="display:none;">
-    <div style="background:rgba(180, 40, 40, 0.95); padding:2rem; border-radius:12px; max-width:500px; margin:2rem auto; text-align:center; color:white; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-      <h2 style="margin-top:0; font-size:1.5rem;">⚠️ ${t('noSecondMonitorTitle')}</h2>
-      <p style="font-size:1.1rem; margin:1rem 0;">${t('noSecondMonitorMsg')}</p>
-      <p style="font-size:0.9rem; opacity:0.9;">${t('noSecondMonitorHint')}</p>
-      <button id="retry-monitor" style="margin-top:1rem; padding:0.6rem 1.2rem; font-size:1rem; border:none; border-radius:6px; background:rgba(255,255,255,0.2); color:white; cursor:pointer;">
-        ${t('retryDetection')}
-      </button>
-    </div>
-  </div>
   <div id="content">
+    <div id="monitor-warning">
+      <div class="warning-card">
+        <h2 id="monitor-warning-title" class="warning-title">${t('noSecondMonitorTitle')}</h2>
+        <p id="monitor-warning-msg" class="warning-msg">${t('noSecondMonitorMsg')}</p>
+        <p id="monitor-warning-hint" class="warning-hint">${t('noSecondMonitorHint')}</p>
+        <div id="monitor-warning-status" class="status-line"></div>
+        <button id="retry-monitor" class="warning-button">${t('retryDetection')}</button>
+      </div>
+    </div>
+
     <section id="view-lyricas" class="view">
       <aside id="lyricas-sidebar">
         <div id="lyricas-song-list"></div>
-        <div id="lyricas-new-song-form" style="display:none; margin-top:1rem;">
+        <div id="lyricas-new-song-form">
           <input id="lyricas-new-title" type="text" placeholder="${t('title')}" />
           <input id="lyricas-new-artist" type="text" placeholder="${t('artist')}" />
           <textarea id="lyricas-new-lyrics" placeholder="${t('lyrics')}"></textarea>
-          <div style="margin-top:0.5rem;">
+          <div>
             <button id="lyricas-new-save">${t('save')}</button>
             <button id="lyricas-new-cancel">${t('cancel')}</button>
           </div>
-          <div id="lyricas-status" style="margin-top:0.5rem; font-size:0.85rem; opacity:0.9;"></div>
         </div>
+        <div id="lyricas-status" class="status-line"></div>
         <div id="lyricas-blocks"></div>
-        <div id="lyricas-backgrounds" style="margin-top:1rem;"></div>
+        <div id="lyricas-backgrounds"></div>
+        <div id="lyricas-bg-status" class="status-line"></div>
       </aside>
       <main id="lyricas-main">
         <h1 id="lyricas-song-title"></h1>
         <div id="lyricas-block-display"></div>
-        <div id="lyricas-controls" style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:center;">
+        <div id="lyricas-controls">
           <button id="lyricas-prev-block">${t('prevBlock')}</button>
           <button id="lyricas-next-block">${t('nextBlock')}</button>
         </div>
@@ -802,19 +984,19 @@ appElement.innerHTML = `
 
     <section id="view-biblia" class="view" style="display:none;">
       <aside id="biblia-sidebar">
-        <div style="margin-bottom:0.75rem;">
-          <label>${t('version')} </label>
+        <div class="field">
+          <label id="biblia-version-label">${t('version')}</label>
           <select id="biblia-version-select"></select>
         </div>
-        <div id="biblia-no-versions" style="display:none; font-size:0.9rem; opacity:0.8;">${t('noVersions')}</div>
+        <div id="biblia-no-versions" class="empty-hint">${t('noVersions')}</div>
         <div id="biblia-books"></div>
+        <div id="biblia-chapters"></div>
       </aside>
       <main id="biblia-main">
-        <div id="biblia-chapters"></div>
-        <div id="biblia-verses"></div>
-        <div id="biblia-song-title" style="font-size:1.5rem; margin-bottom:0.5rem; opacity:0.9;"></div>
+        <div id="biblia-song-title"></div>
         <div id="biblia-block-display"></div>
-        <div id="biblia-controls" style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:center;">
+        <div id="biblia-verses"></div>
+        <div id="biblia-controls">
           <button id="biblia-prev-verse">${t('prevBlock')}</button>
           <button id="biblia-next-verse">${t('nextBlock')}</button>
         </div>
@@ -822,27 +1004,35 @@ appElement.innerHTML = `
     </section>
 
     <section id="view-opciones" class="view" style="display:none;">
-      <aside id="opciones-sidebar">
-        <h3>${t('background')}</h3>
-        <input id="opciones-background" type="file" accept="image/*" />
-        <div id="opciones-status" style="margin-top:0.5rem; font-size:0.85rem; opacity:0.9;"></div>
-        <hr style="margin:1rem 0; border:none; border-top:1px solid rgba(255,255,255,0.15);" />
-        <h3>${t('language')}</h3>
-        <select id="opciones-lang">
-          <option value="es">${t('langEs')}</option>
-          <option value="en">${t('langEn')}</option>
-        </select>
-        <hr style="margin:1rem 0; border:none; border-top:1px solid rgba(255,255,255,0.15);" />
-        <h3>${t('donations')}</h3>
-        <p style="font-size:0.9rem; opacity:0.9; margin-bottom:0.75rem;">${t('donationsText')}</p>
-        <button id="opciones-donate">${t('donateBtn')}</button>
-      </aside>
       <main id="opciones-main">
-        <div id="opciones-block-display"></div>
+        <div id="opciones-container">
+          <h1 id="opciones-title">${t('tabOpciones')}</h1>
+
+          <section class="opciones-card">
+            <h2 id="opciones-bg-title">${t('background')}</h2>
+            <p id="opciones-bg-help" class="opciones-help">${t('backgroundHelp')}</p>
+            <input id="opciones-background" type="file" accept="image/*" />
+            <div id="opciones-status" class="status-line"></div>
+          </section>
+
+          <section class="opciones-card">
+            <h2 id="opciones-lang-title">${t('language')}</h2>
+            <p id="opciones-lang-help" class="opciones-help">${t('languageHelp')}</p>
+            <select id="opciones-lang">
+              <option value="es">${t('langEs')}</option>
+              <option value="en">${t('langEn')}</option>
+            </select>
+          </section>
+
+          <section class="opciones-card">
+            <h2 id="opciones-donations-title">${t('donations')}</h2>
+            <p id="opciones-donations-text" class="opciones-help">${t('donationsText')}</p>
+            <button id="opciones-donate">${t('donateBtn')}</button>
+          </section>
+        </div>
       </main>
     </section>
   </div>
-  <div id="lyricas-overlay"></div>
   <div id="global-controls">
     <button id="auto-advance-button">${t('autoAdvanceOff')}</button>
   </div>

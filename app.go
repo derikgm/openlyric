@@ -352,12 +352,18 @@ func (a *App) LoadBackgrounds() ([]string, error) {
 }
 
 // SetBackgroundFromFile sets the background from an image file located in the backgrounds folder,
-// converts it to a data URL and persists it.
-func (a *App) SetBackgroundFromFile(filename string) error {
+// converts it to a data URL and persists it. It returns the data URL so the frontend can
+// display the image without depending on filesystem paths.
+func (a *App) SetBackgroundFromFile(filename string) (string, error) {
+	filename = filepath.Base(strings.TrimSpace(filename))
+	if filename == "" || filename == "." || filename == string(filepath.Separator) {
+		return "", fmt.Errorf("invalid background filename")
+	}
+
 	path := filepath.Join(a.backgroundsDir, filename)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -377,7 +383,19 @@ func (a *App) SetBackgroundFromFile(filename string) error {
 
 	dataUrl := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
 	a.background = dataUrl
-	return a.saveConfig()
+	if err := a.saveConfig(); err != nil {
+		return "", err
+	}
+
+	return dataUrl, nil
+}
+
+// donationURL is the page opened from the donations section in Options.
+const donationURL = "https://github.com/sponsors/derikgm"
+
+// OpenDonationPage opens the project's donation page in the default browser.
+func (a *App) OpenDonationPage() {
+	runtime.BrowserOpenURL(a.ctx, donationURL)
 }
 
 // GetScreens returns the list of monitors (screens) available.

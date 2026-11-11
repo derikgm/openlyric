@@ -1,33 +1,8 @@
-#viewer {
-    position: relative;
-    height: 100vh;
-    width: 100vw;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(27, 38, 54, 1);
+/* ---------- Fondo global (imagen de proyección) ---------- */
+#app {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    color: white;
-    text-align: center;
-    overflow: hidden;
-}
-
-#viewer[style*="background-image"] {
-    background-size: cover;
-}
-
-#lyrics-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.45);
-    z-index: 1;
-    pointer-events: none;
 }
 
 /* ---------- Topbar ---------- */
@@ -77,13 +52,19 @@
 
 /* ---------- Content ---------- */
 #content {
+    position: relative;
     margin-top: 56px;
     display: flex;
     height: calc(100vh - 56px);
+    overflow: hidden;
 }
 
 #content section.view {
     display: none;
+    flex: 1 1 auto;
+    flex-direction: row;
+    width: 100%;
+    min-width: 0;
     height: 100%;
     overflow: hidden;
 }
@@ -91,6 +72,25 @@
 .view aside, .view main {
     box-sizing: border-box;
     overflow-y: auto;
+}
+
+.view aside h3 {
+    font-size: 1rem;
+    margin: 1.1rem 0 0.5rem;
+    opacity: 0.9;
+}
+
+.empty-hint {
+    font-size: 0.9rem;
+    opacity: 0.7;
+    padding: 0.35rem 0;
+}
+
+.status-line {
+    min-height: 1.1em;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    opacity: 0.85;
 }
 
 /* ---------- Liricas ---------- */
@@ -109,6 +109,7 @@
 
 #lyricas-main {
     flex: 1;
+    min-width: 0;
     background: rgba(0, 0, 0, 0.4);
     padding: 2rem;
     display: flex;
@@ -120,7 +121,7 @@
 #lyricas-song-title {
     font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 1.5rem;
+    margin: 0 0 1.5rem;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
@@ -133,51 +134,17 @@
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
 }
 
-.lyricas-item {
-    padding: 0.65rem 0.85rem;
-    border-radius: 6px;
-    color: white;
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 2px solid transparent;
-    margin-bottom: 0.35rem;
-    background: rgba(255, 255, 255, 0.06);
+#lyricas-controls,
+#biblia-controls {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-.lyricas-item:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.lyricas-item.active {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.55);
-}
-
-.lyricas-block {
-    padding: 0.55rem 0.85rem;
-    border-radius: 6px;
-    color: white;
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 2px solid transparent;
-    margin-bottom: 0.35rem;
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.lyricas-block:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.lyricas-block.active {
-    background: rgba(0, 150, 255, 0.25);
-    border-color: rgba(0, 150, 255, 0.6);
-}
-
-#lyricas-controls button {
+#lyricas-controls button,
+#biblia-controls button {
     padding: 0.6rem 1.2rem;
     font-size: 0.95rem;
     border: none;
@@ -188,8 +155,70 @@
     transition: background 0.2s ease;
 }
 
-#lyricas-controls button:hover {
+#lyricas-controls button:hover,
+#biblia-controls button:hover {
     background-color: rgba(255, 255, 255, 0.3);
+}
+
+.lyricas-item,
+.lyricas-block,
+.lyricas-bg-item {
+    padding: 0.6rem 0.85rem;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.92rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 2px solid transparent;
+    margin-bottom: 0.35rem;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lyricas-item:hover,
+.lyricas-block:hover,
+.lyricas-bg-item:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.lyricas-item.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.55);
+}
+
+.lyricas-block.active,
+.lyricas-bg-item.active {
+    background: rgba(0, 150, 255, 0.25);
+    border-color: rgba(0, 150, 255, 0.6);
+}
+
+.secondary-button,
+#lyricas-new-song {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.92rem;
+    border: 1px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.secondary-button:hover,
+#lyricas-new-song:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+#lyricas-new-song-form {
+    display: none;
+    margin-top: 1rem;
 }
 
 #lyricas-new-song-form input,
@@ -241,6 +270,7 @@
 
 #biblia-main {
     flex: 1;
+    min-width: 0;
     background: rgba(0, 0, 0, 0.4);
     padding: 2rem;
     display: flex;
@@ -252,7 +282,7 @@
 #biblia-sidebar select {
     width: 100%;
     padding: 0.5rem;
-    margin-bottom: 0.75rem;
+    box-sizing: border-box;
     font-size: 0.9rem;
     border: none;
     border-radius: 6px;
@@ -260,8 +290,26 @@
     color: white;
 }
 
+#biblia-sidebar .field {
+    margin-bottom: 0.5rem;
+}
+
+#biblia-sidebar .field label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+#biblia-song-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.9;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
 #biblia-block-display {
-    font-size: 3rem;
+    font-size: 2.8rem;
     line-height: 1.7;
     white-space: pre-wrap;
     text-align: center;
@@ -269,93 +317,173 @@
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
-#biblia-controls button {
-    padding: 0.6rem 1.2rem;
+#biblia-verses {
+    max-width: 90%;
+    max-height: 24vh;
+    margin-top: 1.25rem;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+#biblia-verses .lyricas-block {
+    margin-bottom: 0;
+    white-space: normal;
+}
+
+/* ---------- Opciones (pantalla completa) ---------- */
+#opciones-main {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 2.5rem 1.5rem 4rem;
+    display: block;
+}
+
+#opciones-container {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    text-align: left;
+}
+
+#opciones-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.9rem;
+    font-weight: 700;
+}
+
+.opciones-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.opciones-card h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.15rem;
+}
+
+.opciones-help {
+    margin: 0 0 1rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    opacity: 0.8;
+}
+
+.opciones-card select {
+    width: 100%;
+    max-width: 320px;
+    padding: 0.55rem;
+    box-sizing: border-box;
     font-size: 0.95rem;
     border: none;
     border-radius: 6px;
     background-color: rgba(255, 255, 255, 0.15);
     color: white;
-    cursor: pointer;
-    transition: background 0.2s ease;
 }
 
-#biblia-controls button:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
-/* ---------- Opciones ---------- */
-#opciones-sidebar {
-    width: 320px;
-    max-width: 40vw;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: rgba(0, 0, 0, 0.82);
-    border-right: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 1rem;
-    box-sizing: border-box;
-    overflow-y: auto;
-}
-
-#opciones-main {
-    flex: 1;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-#opciones-sidebar h3 {
-    font-size: 1rem;
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-    opacity: 0.9;
-}
-
-#opciones-sidebar input[type="file"] {
+.opciones-card input[type="file"] {
     width: 100%;
-    margin-bottom: 0.75rem;
+    box-sizing: border-box;
     font-size: 0.9rem;
     color: white;
     background: rgba(255, 255, 255, 0.1);
-    padding: 0.5rem;
+    padding: 0.6rem;
     border-radius: 6px;
 }
 
-#opciones-sidebar select {
-    width: 100%;
-    padding: 0.5rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.9rem;
-    border: none;
-    border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.15);
-    color: white;
-}
-
-#opciones-sidebar button {
-    width: 100%;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
+.opciones-card button {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.92rem;
     border: none;
     border-radius: 6px;
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     cursor: pointer;
-    margin-top: 0.5rem;
+    transition: background 0.2s ease;
 }
 
-#opciones-sidebar button:hover {
+.opciones-card button:hover {
     background-color: rgba(255, 255, 255, 0.35);
 }
 
-#opciones-block-display {
-    font-size: 2rem;
+/* ---------- Cartel de segundo monitor ---------- */
+#monitor-warning {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 360px; /* deja libre el sidebar de Liricas */
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 30;
+}
+
+#monitor-warning.biblia {
+    left: 340px; /* deja libre el sidebar de Biblia */
+}
+
+#monitor-warning .warning-card {
+    width: min(520px, 100%);
+    background: rgba(180, 40, 40, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    padding: 2rem;
+    box-sizing: border-box;
     text-align: center;
+    color: white;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    pointer-events: auto;
+}
+
+#monitor-warning .warning-title {
+    margin: 0 0 1rem;
+    font-size: 1.4rem;
+}
+
+#monitor-warning .warning-msg {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+
+#monitor-warning .warning-hint {
+    margin: 0;
+    font-size: 0.9rem;
     opacity: 0.9;
+}
+
+#monitor-warning .status-line {
+    margin-top: 0.75rem;
+}
+
+#monitor-warning .warning-button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+#monitor-warning .warning-button:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* ---------- Global controls ---------- */
@@ -393,9 +521,6 @@
         padding: 0 1rem;
         height: 48px;
     }
-    #topbar-brand {
-        font-size: 1rem;
-    }
     #topbar-tabs .tab {
         padding: 0.4rem 0.8rem;
         font-size: 0.85rem;
@@ -404,16 +529,29 @@
         margin-top: 48px;
         height: calc(100vh - 48px);
     }
-    #lyricas-sidebar, #biblia-sidebar, #opciones-sidebar {
+    #lyricas-sidebar,
+    #biblia-sidebar {
         width: 260px;
         max-width: 55vw;
         padding: 0.75rem;
     }
-    #lyricas-main, #biblia-main, #opciones-main {
+    #lyricas-main,
+    #biblia-main {
         padding: 1rem;
     }
-    #lyricas-block-display, #biblia-block-display {
+    #lyricas-block-display {
         font-size: 1.8rem;
+    }
+    #biblia-block-display {
+        font-size: 2rem;
+    }
+    #monitor-warning,
+    #monitor-warning.biblia {
+        left: 260px;
+        padding: 1rem;
+    }
+    #opciones-main {
+        padding: 1.5rem 1rem 4rem;
     }
 }
 
@@ -425,41 +563,37 @@
         padding: 0.35rem 0.6rem;
         font-size: 0.75rem;
     }
-    #lyricas-sidebar, #biblia-sidebar, #opciones-sidebar {
+    #lyricas-sidebar,
+    #biblia-sidebar {
         width: 220px;
         max-width: 70vw;
         padding: 0.6rem;
     }
-    #lyricas-block-display, #biblia-block-display {
+    #lyricas-block-display {
         font-size: 1.4rem;
     }
-    #lyricas-main, #biblia-main, #opciones-main {
+    #biblia-block-display {
+        font-size: 1.5rem;
+    }
+    #lyricas-main,
+    #biblia-main {
         padding: 0.75rem;
     }
-}
-
-/* ---------- Fondos (galería en Liricas) ---------- */
-.lyricas-bg-item {
-    padding: 0.6rem 0.85rem;
-    border-radius: 6px;
-    color: white;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 2px solid transparent;
-    margin-bottom: 0.35rem;
-    background: rgba(255, 255, 255, 0.06);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.lyricas-bg-item:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.lyricas-bg-item.active {
-    background: rgba(0, 150, 255, 0.25);
-    border-color: rgba(0, 150, 255, 0.6);
+    #monitor-warning,
+    #monitor-warning.biblia {
+        left: 220px;
+        padding: 0.6rem;
+    }
+    #monitor-warning .warning-card {
+        padding: 1.25rem;
+    }
+    #monitor-warning .warning-title {
+        font-size: 1.15rem;
+    }
+    #opciones-main {
+        padding: 1rem 0.75rem 4rem;
+    }
+    .opciones-card {
+        padding: 1rem;
+    }
 }

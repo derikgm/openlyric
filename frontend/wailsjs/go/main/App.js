@@ -38,6 +38,10 @@ export function LoadSongs() {
   return window['go']['main']['App']['LoadSongs']();
 }
 
+export function OpenDonationPage() {
+  return window['go']['main']['App']['OpenDonationPage']();
+}
+
 export function SetBackground(arg1) {
   return window['go']['main']['App']['SetBackground'](arg1);
 }
