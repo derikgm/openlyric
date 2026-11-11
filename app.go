@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,13 +20,15 @@ type App struct {
 	background string
 	bibles     []*BibleVersion
 	biblesMap  map[string]*BibleVersion
+	configFile string
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		bibles:    []*BibleVersion{},
-		biblesMap: map[string]*BibleVersion{},
+		bibles:     []*BibleVersion{},
+		biblesMap:  map[string]*BibleVersion{},
+		configFile: "openlyric-config.json",
 	}
 }
 
@@ -38,6 +41,11 @@ func (a *App) startup(ctx context.Context) {
 	a.bibles = []*BibleVersion{}
 	a.biblesMap = map[string]*BibleVersion{}
 
+	// Load the persisted background (if any).
+	if err := a.loadConfig(); err != nil {
+		println("Error loading config:", err.Error())
+	}
+
 	// Ensure the songs and bibles folders exist so users can add content later on.
 	if err := os.MkdirAll(a.songsDir, 0755); err != nil {
 		println("Error creating songs folder:", err.Error())
@@ -48,6 +56,40 @@ func (a *App) startup(ctx context.Context) {
 
 	// Open the lyrics viewer on the second monitor when one is available.
 	a.openViewerOnSecondMonitor(ctx)
+}
+
+// loadConfig reads the persisted background from the config file.
+func (a *App) loadConfig() error {
+	data, err := os.ReadFile(a.configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var config struct {
+		Background string `json:"background"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(config.Background, "data:image/") {
+		a.background = config.Background
+	}
+
+	return nil
+}
+
+// saveConfig persists the background into the config file.
+func (a *App) saveConfig() error {
+	data, err := json.Marshal(map[string]string{"background": a.background})
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(a.configFile, data, 0644)
 }
 
 // openViewerOnSecondMonitor positions the window on the first
@@ -261,14 +303,19 @@ func (a *App) CreateSong(title string, artist string, lyrics string) (*Song, err
 	return song, nil
 }
 
-// SetBackground stores the background image (data URL) selected by the user.
+// SetBackground stores the background image (data URL) selected by the user and persists it.
 func (a *App) SetBackground(background string) error {
 	if !strings.HasPrefix(background, "data:image/") {
 		return fmt.Errorf("invalid background image: must be a data URL with an image mime type")
 	}
 
 	a.background = background
-	return nil
+	return a.saveConfig()
+}
+
+// GetBackground returns the background image (data URL) persisted by the user.
+func (a *App) GetBackground() string {
+	return a.background
 }
 
 // GetScreens returns the list of monitors (screens) available.

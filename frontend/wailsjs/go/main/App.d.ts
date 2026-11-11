@@ -5,6 +5,8 @@ import {frontend} from '../models';
 
 export function CreateSong(arg1:string,arg2:string,arg3:string):Promise<main.Song>;
 
+export function GetBackground():Promise<string>;
+
 export function GetScreens():Promise<Array<frontend.Screen>>;
 
 export function Greet(arg1:string):Promise<string>;

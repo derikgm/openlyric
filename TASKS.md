@@ -32,7 +32,12 @@
 - [x] Avance automático de versos (timer, botón en visor) ✅
 - [x] Navegación de versos con teclado (← / →) ✅
 - [x] Contador de verso actual (p. ej. "Verso 5 — 3 de 31") ✅
-- [x] Overlay de fondo para legibilidad del texto ✅
+- [x] Overlay semitransparente para legibilidad del texto ✅
+- [x] Transición de fade entre versos ✅
+- [x] Persistencia del fondo y última versión (config JSON + localStorage) ✅
+- [x] Diseño responsive (tablet y móvil) ✅
+- [x] Internacionalización español/inglés (ES/EN) ✅
+- [x] Tests unitarios Go (parsers txt/json, Biblia) ✅
 
 ## Fase 4: Controlador y monitores
 - [x] Detectar monitores ✅ (backend `GetScreens` + UI que lista monitores)
@@ -48,3 +53,7 @@
 - [x] Añadir licencia ✅ (MIT - archivo `LICENSE`)
 - [x] Añadir sección de contribución ✅ (sección actualizada en README)
 - [x] Añadir soporte de versiones de la Biblia (JSON tipo Reina-Valera) ✅ (backend `bible.go`, `LoadBibleVersions`, `LoadBibleSongs`; frontend selector de versión)
+- [x] Pulido UX: fade entre versos, contador de verso, avance automático, teclado (←/→) ✅
+- [x] Persistencia, responsive e i18n ES/EN ✅
+- [x] Tests unitarios Go ✅
+

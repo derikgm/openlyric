@@ -28,11 +28,13 @@
     font-size: 3rem;
     font-weight: bold;
     margin: 0;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 #song-info {
     font-size: 1.5rem;
     margin-top: 0.5rem;
+    opacity: 0.95;
 }
 
 #lyrics-overlay {
@@ -55,30 +57,31 @@
     overflow-y: auto;
     padding: 2rem;
     max-width: 100%;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+#lyrics.verse-fade {
+    animation: verseFade 0.8s ease;
+}
+
+@keyframes verseFade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 #verse-controls {
     position: relative;
     z-index: 1;
     margin-top: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-#next-verse {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.15);
-    color: white;
-    cursor: pointer;
-}
-
-#next-verse:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
+#next-verse,
+#prev-verse,
 #auto-advance-button {
-    margin-left: 1rem;
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     border: none;
@@ -86,23 +89,12 @@
     background-color: rgba(255, 255, 255, 0.15);
     color: white;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
+#next-verse:hover,
+#prev-verse:hover,
 #auto-advance-button:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
-#prev-verse {
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.15);
-    color: white;
-    cursor: pointer;
-}
-
-#prev-verse:hover {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -121,6 +113,11 @@
     background-color: rgba(0, 0, 0, 0.5);
     color: white;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#background-button:hover {
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
 #background-input {
@@ -132,13 +129,15 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 320px;
+    width: 340px;
+    max-width: 40vw;
     z-index: 3;
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: rgba(0, 0, 0, 0.82);
     border-right: 1px solid rgba(255, 255, 255, 0.15);
     padding: 1rem;
     box-sizing: border-box;
     overflow-y: auto;
+    transition: transform 0.25s ease;
 }
 
 #song-list-header {
@@ -146,11 +145,28 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 #song-list-title {
     font-size: 1.25rem;
     font-weight: bold;
+}
+
+#language-button {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#language-button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
 #new-song-button {
@@ -161,6 +177,7 @@
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
 #new-song-button:hover {
@@ -176,24 +193,29 @@
 .song-list-item {
     padding: 0.75rem;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.1);
     color: white;
     font-size: 1rem;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 2px solid transparent;
 }
 
 .song-list-item:hover {
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .song-list-item.active {
-    background-color: rgba(255, 255, 255, 0.35);
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
 }
 
 #song-list-empty {
     padding: 1rem;
     font-size: 1rem;
     opacity: 0.8;
+    text-align: center;
 }
 
 #new-song-form input,
@@ -227,6 +249,11 @@
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#new-song-actions button:hover {
+    background-color: rgba(255, 255, 255, 0.35);
 }
 
 #version-controls {
@@ -265,4 +292,91 @@
     right: 0;
     font-size: 0.9rem;
     opacity: 0.8;
+    text-align: center;
+    pointer-events: none;
+}
+
+/* Responsive: tablets and small screens */
+@media (max-width: 768px) {
+    #song-title {
+        font-size: 2rem;
+    }
+
+    #song-info {
+        font-size: 1.125rem;
+    }
+
+    #lyrics {
+        font-size: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    #song-list {
+        width: 280px;
+        max-width: 50vw;
+    }
+
+    #verse-controls {
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+    }
+
+    #next-verse,
+    #prev-verse,
+    #auto-advance-button {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Responsive: phones */
+@media (max-width: 480px) {
+    #song-list {
+        width: 240px;
+        max-width: 60vw;
+    }
+
+    #song-header,
+    #lyrics,
+    #verse-controls {
+        margin-left: 0;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    #song-title {
+        font-size: 1.5rem;
+    }
+
+    #lyrics {
+        font-size: 1.25rem;
+        padding: 1rem;
+    }
+
+    #version-controls {
+        top: 0.5rem;
+    }
+
+    #background-controls {
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+
+    #next-verse,
+    #prev-verse,
+    #auto-advance-button {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    #song-list-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    #language-button,
+    #new-song-button {
+        width: 100%;
+        text-align: center;
+    }
 }

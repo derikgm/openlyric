@@ -1,7 +1,7 @@
 import './style.css';
 import './app.css';
 
-import {SetBackground, GetScreens, LoadBibleSongs, LoadBibleVersions, CreateSong} from '../wailsjs/go/main/App';
+import {SetBackground, GetScreens, LoadBibleSongs, LoadBibleVersions, CreateSong, GetBackground} from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
 
@@ -13,6 +13,79 @@ let currentVerse = 0;
 let listTitle = 'Canciones';
 let autoAdvance = false;
 let autoAdvanceTimer = null;
+
+const i18n = {
+    es: {
+        loading: 'Cargando...',
+        loadingSongs: 'Cargando canciones...',
+        noSongs: 'No hay canciones disponibles.',
+        addSongs: 'Añade archivos en la carpeta `songs/`.',
+        noVersions: 'No se encontraron versiones de la Biblia.',
+        errorLoading: 'Error al cargar las canciones.',
+        errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
+        version: 'Versión:',
+        backgroundUpdated: 'Fondo actualizado.',
+        errorBackground: 'Error al seleccionar el fondo.',
+        songCreated: 'Canción creada.',
+        titleRequired: 'El título es obligatorio.',
+        errorCreate: 'Error al crear la canción.',
+        nextVerse: 'Siguiente verso',
+        selectBackground: 'Seleccionar fondo',
+        newSong: '+ Nueva',
+        save: 'Guardar',
+        cancel: 'Cancelar',
+        autoAdvanceOn: '⏱ Avance automático: ON',
+        autoAdvanceOff: '⏱ Avance automático: OFF',
+        noScreens: 'No se detectaron monitores.',
+        noSongsPanel: 'No hay canciones.',
+        newSongTitle: 'Título',
+        newSongArtist: 'Artista / Autor',
+        newSongLyrics: 'Letra de la canción...',
+    },
+    en: {
+        loading: 'Loading...',
+        loadingSongs: 'Loading songs...',
+        noSongs: 'No songs available.',
+        addSongs: 'Add files to the `songs/` folder.',
+        noVersions: 'No Bible versions found.',
+        errorLoading: 'Error loading songs.',
+        errorLoadingVersion: 'Error loading Bible version.',
+        version: 'Version:',
+        backgroundUpdated: 'Background updated.',
+        errorBackground: 'Error selecting background.',
+        songCreated: 'Song created.',
+        titleRequired: 'Title is required.',
+        errorCreate: 'Error creating song.',
+        nextVerse: 'Next verse',
+        selectBackground: 'Select background',
+        newSong: '+ New',
+        save: 'Save',
+        cancel: 'Cancel',
+        autoAdvanceOn: '⏱ Auto-advance: ON',
+        autoAdvanceOff: '⏱ Auto-advance: OFF',
+        noScreens: 'No monitors detected.',
+        noSongsPanel: 'No songs.',
+        newSongTitle: 'Title',
+        newSongArtist: 'Artist / Author',
+        newSongLyrics: 'Song lyrics...',
+    },
+};
+
+let lang = localStorage.getItem('openlyric:lang') || 'es';
+
+function t(key) {
+    const dictionary = i18n[lang] || i18n.es;
+    return dictionary[key] ?? i18n.es[key] ?? key;
+}
+
+function setLang(newLang) {
+    lang = newLang;
+    localStorage.setItem('openlyric:lang', lang);
+}
+
+function trVersion(version) {
+    return `${t('version')} ${version.translation ?? version.abbreviation ?? ''}`;
+}
 
 function splitVerses(lyrics) {
     const blocks = String(lyrics ?? '')
@@ -31,8 +104,8 @@ function render() {
 
     if (!song) {
         songTitleElement.innerText = 'OpenLyric';
-        songInfoElement.innerText = 'No hay canciones disponibles.';
-        lyricsElement.innerText = 'Añade archivos en la carpeta `songs/`.';
+        songInfoElement.innerText = t('noSongs');
+        lyricsElement.innerText = t('addSongs');
         return;
     }
 
@@ -41,6 +114,9 @@ function render() {
 
     const verseText = verses[currentVerse] ?? song.lyrics;
     const verseNumbers = Array.isArray(song.verseNumbers) ? song.verseNumbers : [];
+    lyricsElement.classList.remove('verse-fade');
+    void lyricsElement.offsetWidth;
+    lyricsElement.classList.add('verse-fade');
     if (verseNumbers[currentVerse] != null) {
         lyricsElement.innerText = `Verso ${verseNumbers[currentVerse]}\n${currentVerse + 1} de ${verseNumbers.length}\n\n${verseText}`;
     } else {
@@ -87,7 +163,7 @@ function renderSongList() {
     if (songs.length === 0) {
         const emptyElement = document.createElement('div');
         emptyElement.id = 'song-list-empty';
-        emptyElement.innerText = 'No hay canciones.';
+        emptyElement.innerText = t('noSongsPanel');
         songListItemsElement.appendChild(emptyElement);
         return;
     }
@@ -107,7 +183,7 @@ function renderScreens(screens) {
     const screensElement = document.getElementById('screens');
 
     if (!screens || screens.length === 0) {
-        screensElement.innerText = 'No se detectaron monitores.';
+        screensElement.innerText = t('noScreens');
         return;
     }
 
@@ -160,7 +236,15 @@ function renderVersionSelect(versionsList) {
 
 async function init() {
     const statusElement = document.getElementById('status');
-    statusElement.innerText = 'Cargando canciones...';
+    statusElement.innerText = t('loadingSongs');
+
+    try {
+        const background = await GetBackground();
+        if (background) {
+            viewerElement.style.backgroundImage = background;
+        }
+    } catch (error) {
+    }
 
     try {
         const loadedVersions = await LoadBibleVersions();
@@ -171,7 +255,7 @@ async function init() {
         if (versions.length === 0) {
             render();
             renderSongList();
-            statusElement.innerText = 'No se encontraron versiones de la Biblia.';
+            statusElement.innerText = t('noVersions');
             return;
         }
 
@@ -182,19 +266,34 @@ async function init() {
                 return;
             }
 
+            localStorage.setItem('openlyric:version', version.abbreviation);
+
             try {
                 await loadVersionSongs(version);
-                statusElement.innerText = `Versión: ${version.translation}`;
+                statusElement.innerText = trVersion(version);
             } catch (error) {
-                statusElement.innerText = 'Error al cargar la versión de la Biblia.';
+                statusElement.innerText = t('errorLoadingVersion');
             }
         });
 
-        const firstVersion = versions[0];
-        await loadVersionSongs(firstVersion);
-        statusElement.innerText = `Versión: ${firstVersion.translation}`;
+        const savedVersion = localStorage.getItem('openlyric:version');
+        let versionToLoad = versions[0];
+        if (savedVersion) {
+            const saved = versions.find((item) => item.abbreviation === savedVersion);
+            if (saved) {
+                versionToLoad = saved;
+            }
+        }
+
+        await loadVersionSongs(versionToLoad);
+        listTitle = versionToLoad.translation ?? versionToLoad.abbreviation;
+        statusElement.innerText = trVersion(versionToLoad);
+
+        if (savedVersion !== versionToLoad.abbreviation) {
+            localStorage.setItem('openlyric:version', versionToLoad.abbreviation);
+        }
     } catch (error) {
-        statusElement.innerText = 'Error al cargar las canciones.';
+        statusElement.innerText = t('errorLoading');
         return;
     }
 
@@ -204,16 +303,28 @@ async function init() {
     } catch (error) {
         renderScreens([]);
     }
+
+    languageButton.innerText = lang === 'es' ? 'EN' : 'ES';
+    nextVerseButton.innerText = t('nextVerse');
+    backgroundButton.innerText = t('selectBackground');
+    newSongButton.innerText = t('newSong');
+    newSongSaveButton.innerText = t('save');
+    newSongCancelButton.innerText = t('cancel');
+    newSongTitleElement.placeholder = t('newSongTitle');
+    newSongArtistElement.placeholder = t('newSongArtist');
+    newSongLyricsElement.placeholder = t('newSongLyrics');
+    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
+    renderSongList();
 }
 
 appElement.innerHTML = `
     <div id="viewer">
         <div id="lyrics-overlay"></div>
         <aside id="song-list">
-            <div id="song-list-header">
+    <div id="song-list-header">
                 <span id="song-list-title">Canciones</span>
+                <button id="language-button">ES</button>
                 <button id="new-song-button">+ Nueva</button>
-            </div>
             <div id="song-list-items"></div>
             <div id="new-song-form" style="display: none;">
                 <input id="new-song-title" type="text" placeholder="Título" />
@@ -269,6 +380,7 @@ const newSongLyricsElement = document.getElementById('new-song-lyrics');
 const newSongSaveButton = document.getElementById('new-song-save');
 const newSongCancelButton = document.getElementById('new-song-cancel');
 const versionSelectElement = document.getElementById('version-select');
+const languageButton = document.getElementById('language-button');
 
 nextVerseButton.addEventListener('click', () => {
     if (verses.length === 0) return;
@@ -288,7 +400,7 @@ prevVerseButton.addEventListener('click', () => {
 
 autoAdvanceButton.addEventListener('click', () => {
     autoAdvance = !autoAdvance;
-    autoAdvanceButton.innerText = autoAdvance ? '⏱ Avance automático: ON' : '⏱ Avance automático: OFF';
+    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
     if (autoAdvance) {
         startAutoAdvance();
     } else {
@@ -319,6 +431,22 @@ document.addEventListener('keydown', (event) => {
 
 backgroundButton.addEventListener('click', () => backgroundInput.click());
 
+languageButton.addEventListener('click', () => {
+    setLang(lang === 'es' ? 'en' : 'es');
+    languageButton.innerText = lang === 'es' ? 'EN' : 'ES';
+    nextVerseButton.innerText = t('nextVerse');
+    backgroundButton.innerText = t('selectBackground');
+    newSongButton.innerText = t('newSong');
+    newSongSaveButton.innerText = t('save');
+    newSongCancelButton.innerText = t('cancel');
+    newSongTitleElement.placeholder = t('newSongTitle');
+    newSongArtistElement.placeholder = t('newSongArtist');
+    newSongLyricsElement.placeholder = t('newSongLyrics');
+    autoAdvanceButton.innerText = autoAdvance ? t('autoAdvanceOn') : t('autoAdvanceOff');
+    render();
+    renderSongList();
+});
+
 newSongButton.addEventListener('click', () => {
     newSongForm.style.display = 'block';
 });
@@ -336,7 +464,7 @@ newSongSaveButton.addEventListener('click', async () => {
     const lyrics = newSongLyricsElement.value;
 
     if (!title) {
-        statusElement.innerText = 'El título es obligatorio.';
+        statusElement.innerText = t('titleRequired');
         return;
     }
 
@@ -353,9 +481,9 @@ newSongSaveButton.addEventListener('click', async () => {
         newSongTitleElement.value = '';
         newSongArtistElement.value = '';
         newSongLyricsElement.value = '';
-        statusElement.innerText = 'Canción creada.';
+        statusElement.innerText = t('songCreated');
     } catch (error) {
-        statusElement.innerText = 'Error al crear la canción.';
+        statusElement.innerText = t('errorCreate');
     }
 });
 
@@ -367,9 +495,9 @@ backgroundInput.addEventListener('change', async (event) => {
         const dataUrl = await readFileAsDataURL(file);
         await SetBackground(dataUrl);
         viewerElement.style.backgroundImage = dataUrl;
-        statusElement.innerText = 'Fondo actualizado.';
+        statusElement.innerText = t('backgroundUpdated');
     } catch (error) {
-        statusElement.innerText = 'Error al seleccionar el fondo.';
+        statusElement.innerText = t('errorBackground');
     }
 });
 

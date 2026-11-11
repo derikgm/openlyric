@@ -95,7 +95,9 @@ func parseTXTSong(path string) (*Song, error) {
 		case strings.HasPrefix(key, "title:"):
 			song.Title = strings.TrimSpace(strings.TrimPrefix(line, "Title:"))
 		case strings.HasPrefix(key, "artist:"):
-			song.Artist = strings.TrimSpace(strings.TrimPrefix(line, "Artist:"))
+			song.Artist = stripPrefixI(line, "artist:")
+		case strings.HasPrefix(key, "artista:"):
+			song.Artist = stripPrefixI(line, "artista:")
 		case strings.HasPrefix(key, "background:"):
 			song.Background = strings.TrimSpace(strings.TrimPrefix(line, "Background:"))
 		default:
@@ -105,4 +107,12 @@ func parseTXTSong(path string) (*Song, error) {
 
 	song.Lyrics = strings.Join(lyrics, "\n")
 	return song, nil
+}
+
+// stripPrefixI removes the prefix from s case-insensitively.
+func stripPrefixI(s, prefix string) string {
+	if strings.HasPrefix(strings.ToLower(s), prefix) {
+		return strings.TrimSpace(s[len(prefix):])
+	}
+	return strings.TrimSpace(s)
 }

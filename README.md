@@ -17,7 +17,11 @@ Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras 
 - Avance automático de versos (timer configurable en el visor, botón "⏱ Avance automático").
 - Navegación de versos con teclado (flechas ← / →).
 - Contador de verso actual (p. ej. "Verso 5 — 3 de 31").
-- Overlay semitransparente sobre el fondo para mejorar la legibilidad del texto.
+- Diseño responsive para tablets y móviles.
+- Internacionalización español/inglés (selector ES/EN).
+- Persistencia: fondo seleccionado y última versión guardados automáticamente.
+- Transición de fade entre versos.
+- Tests unitarios de parsers y cargador de Biblia.
 
 ## Estructura
 

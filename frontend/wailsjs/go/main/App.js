@@ -6,6 +6,10 @@ export function CreateSong(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateSong'](arg1, arg2, arg3);
 }
 
+export function GetBackground() {
+  return window['go']['main']['App']['GetBackground']();
+}
+
 export function GetScreens() {
   return window['go']['main']['App']['GetScreens']();
 }
