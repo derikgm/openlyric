@@ -15,7 +15,7 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 - Carga de canciones desde `songs/` en formatos `.txt`, `.xml` y `.json`.
 - Carga de versiones de la Biblia desde `bibles/` en formato JSON.
 - Creación automática de las carpetas `songs/`, `bibles/` y `backgrounds/` si no existen.
-- Galería de fondos en Liricas: selecciona rápidamente una foto de fondo desde la carpeta `backgrounds/` (ideal para dejar una imagen mientras no se muestra una letra).
+- Validación de segundo monitor al arrancar: si no hay segundo monitor conectado, se muestra un mensaje de advertencia y no se activa el visor de proyección
 - Creación de canciones con letra desde la app.
 - Diseño responsive para tablets y móviles.
 - Persistencia: fondo, última versión e idioma guardados automáticamente.

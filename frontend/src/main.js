@@ -9,6 +9,7 @@ import {
   SetBackground,
   SetBackgroundFromFile,
   GetScreens,
+  HasSecondMonitor,
   GetBackground,
   LoadBackgrounds,
 } from '../wailsjs/go/main/App';
@@ -28,6 +29,9 @@ let blocks = [];
 // Fondos (galería de imágenes)
 let backgrounds = [];
 let currentBackgroundIndex = -1;
+
+// Validación de monitores
+let hasSecondMonitor = false;
 
 // Biblia
 let currentVersionIndex = 0;
@@ -87,6 +91,9 @@ const i18n = {
     noBackgrounds: 'Sin fondos.',
     screens: 'Monitores',
     noScreens: 'No se detectaron monitores.',
+    noSecondMonitorTitle: 'No tienes segundo monitor para proyectar',
+    noSecondMonitorMsg: 'OpenLyric requiere un segundo monitor o proyector para mostrar las letras. Conecta un segundo monitor y reinicia la aplicación.',
+    noSecondMonitorHint: 'Puedes usar Opciones para cambiar el idioma, pero no podrás proyectar letras sin una segunda pantalla.',
     errorLoading: 'Error al cargar.',
     errorLoadingVersion: 'Error al cargar la versión de la Biblia.',
   },
@@ -134,6 +141,9 @@ const i18n = {
     noBackgrounds: 'No backgrounds.',
     screens: 'Monitors',
     noScreens: 'No monitors detected.',
+    noSecondMonitorTitle: 'No second monitor to project',
+    noSecondMonitorMsg: 'OpenLyric requires a second monitor or projector to display lyrics. Connect a second monitor and restart the application.',
+    noSecondMonitorHint: 'You can use Options to change the language, but you will not be able to project lyrics without a second screen.',
     errorLoading: 'Error loading.',
     errorLoadingVersion: 'Error loading Bible version.',
   },
@@ -569,6 +579,21 @@ async function init() {
   document.getElementById('tab-biblia').addEventListener('click', () => showTab('biblia'));
   document.getElementById('tab-opciones').addEventListener('click', () => showTab('opciones'));
 
+  // Validar que exista segundo monitor para proyectar
+  try {
+    const result = await HasSecondMonitor();
+    hasSecondMonitor = !!result;
+  } catch (e) {
+    hasSecondMonitor = false;
+  }
+
+  if (!hasSecondMonitor) {
+    document.getElementById('monitor-warning').style.display = 'flex';
+    document.getElementById('tab-lyricas').disabled = true;
+    document.getElementById('tab-biblia').disabled = true;
+    document.getElementById('content').style.display = 'none';
+  }
+
   // Cargar canciones
   try {
     const loaded = await LoadSongs();
@@ -695,6 +720,13 @@ appElement.innerHTML = `
       <button id="tab-opciones" class="tab" data-tab="opciones">${t('tabOpciones')}</button>
     </div>
   </nav>
+  <div id="monitor-warning" style="display:none;">
+    <div style="background:rgba(180, 40, 40, 0.95); padding:2rem; border-radius:12px; max-width:500px; margin:2rem auto; text-align:center; color:white; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+      <h2 style="margin-top:0; font-size:1.5rem;">⚠️ ${t('noSecondMonitorTitle')}</h2>
+      <p style="font-size:1.1rem; margin:1rem 0;">${t('noSecondMonitorMsg')}</p>
+      <p style="font-size:0.9rem; opacity:0.9;">${t('noSecondMonitorHint')}</p>
+    </div>
+  </div>
   <div id="content">
     <section id="view-lyricas" class="view">
       <aside id="lyricas-sidebar">

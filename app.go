@@ -384,3 +384,14 @@ func (a *App) SetBackgroundFromFile(filename string) error {
 func (a *App) GetScreens() ([]runtime.Screen, error) {
 	return runtime.ScreenGetAll(a.ctx)
 }
+
+// HasSecondMonitor returns true when more than one monitor is detected.
+// OpenLyric requires a second monitor to project lyrics; without it,
+// the app should warn the user instead of going fullscreen on the only screen.
+func (a *App) HasSecondMonitor() (bool, error) {
+	screens, err := runtime.ScreenGetAll(a.ctx)
+	if err != nil {
+		return false, err
+	}
+	return len(screens) >= 2, nil
+}

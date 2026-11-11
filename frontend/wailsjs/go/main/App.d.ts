@@ -11,6 +11,8 @@ export function GetScreens():Promise<Array<frontend.Screen>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function HasSecondMonitor():Promise<boolean>;
+
 export function LoadBackgrounds():Promise<Array<string>>;
 
 export function LoadBibleSongs(arg1:string):Promise<Array<main.Song>>;
