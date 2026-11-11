@@ -14,6 +14,10 @@ Un clon minimalista de Holyric para Linux y Windows, enfocado en mostrar letras 
 - Panel lateral izquierdo con la lista de canciones/capítulos para escoger rápidamente (o el mensaje "No hay canciones." si no hay).
 - Creación de canciones con letra desde la app (formulario "Nueva canción").
 - Creación automática de las carpetas `songs/` y `bibles/` si no existen.
+- Avance automático de versos (timer configurable en el visor, botón "⏱ Avance automático").
+- Navegación de versos con teclado (flechas ← / →).
+- Contador de verso actual (p. ej. "Verso 5 — 3 de 31").
+- Overlay semitransparente sobre el fondo para mejorar la legibilidad del texto.
 
 ## Estructura
 

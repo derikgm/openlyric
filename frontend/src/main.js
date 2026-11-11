@@ -11,6 +11,8 @@ let selectedIndex = 0;
 let verses = [];
 let currentVerse = 0;
 let listTitle = 'Canciones';
+let autoAdvance = false;
+let autoAdvanceTimer = null;
 
 function splitVerses(lyrics) {
     const blocks = String(lyrics ?? '')
@@ -38,11 +40,32 @@ function render() {
     songInfoElement.innerText = song.artist;
 
     const verseText = verses[currentVerse] ?? song.lyrics;
-    if (Array.isArray(song.verseNumbers) && song.verseNumbers[currentVerse] != null) {
-        lyricsElement.innerText = `Verso ${song.verseNumbers[currentVerse]}\n\n${verseText}`;
+    const verseNumbers = Array.isArray(song.verseNumbers) ? song.verseNumbers : [];
+    if (verseNumbers[currentVerse] != null) {
+        lyricsElement.innerText = `Verso ${verseNumbers[currentVerse]}\n${currentVerse + 1} de ${verseNumbers.length}\n\n${verseText}`;
     } else {
         lyricsElement.innerText = verseText;
     }
+}
+
+function clearAutoAdvance() {
+    if (autoAdvanceTimer) {
+        clearInterval(autoAdvanceTimer);
+        autoAdvanceTimer = null;
+    }
+}
+
+function startAutoAdvance() {
+    clearAutoAdvance();
+    autoAdvanceTimer = setInterval(() => {
+        if (verses.length === 0) {
+            clearAutoAdvance();
+            return;
+        }
+
+        currentVerse = (currentVerse + 1) % verses.length;
+        render();
+    }, 8000);
 }
 
 function selectSong(index) {
@@ -185,6 +208,7 @@ async function init() {
 
 appElement.innerHTML = `
     <div id="viewer">
+        <div id="lyrics-overlay"></div>
         <aside id="song-list">
             <div id="song-list-header">
                 <span id="song-list-title">Canciones</span>
@@ -212,6 +236,7 @@ appElement.innerHTML = `
         <div id="verse-controls">
             <button id="prev-verse">←</button>
             <button id="next-verse">Siguiente verso</button>
+            <button id="auto-advance-button">⏱ Avance automático: OFF</button>
         </div>
         <div id="screens"></div>
         <div id="background-controls">
@@ -231,6 +256,8 @@ const backgroundInput = document.getElementById('background-input');
 const statusElement = document.getElementById('status');
 const screensElement = document.getElementById('screens');
 const viewerElement = document.getElementById('viewer');
+const lyricsOverlayElement = document.getElementById('lyrics-overlay');
+const autoAdvanceButton = document.getElementById('auto-advance-button');
 const songListElement = document.getElementById('song-list');
 const songListTitleElement = document.getElementById('song-list-title');
 const songListItemsElement = document.getElementById('song-list-items');
@@ -248,6 +275,7 @@ nextVerseButton.addEventListener('click', () => {
 
     currentVerse = (currentVerse + 1) % verses.length;
     render();
+    if (autoAdvance) startAutoAdvance();
 });
 
 prevVerseButton.addEventListener('click', () => {
@@ -255,6 +283,38 @@ prevVerseButton.addEventListener('click', () => {
 
     currentVerse = (currentVerse - 1 + verses.length) % verses.length;
     render();
+    if (autoAdvance) startAutoAdvance();
+});
+
+autoAdvanceButton.addEventListener('click', () => {
+    autoAdvance = !autoAdvance;
+    autoAdvanceButton.innerText = autoAdvance ? '⏱ Avance automático: ON' : '⏱ Avance automático: OFF';
+    if (autoAdvance) {
+        startAutoAdvance();
+    } else {
+        clearAutoAdvance();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+    }
+
+    if (event.key === 'ArrowRight') {
+        if (verses.length === 0) return;
+        currentVerse = (currentVerse + 1) % verses.length;
+        render();
+        if (autoAdvance) startAutoAdvance();
+    }
+
+    if (event.key === 'ArrowLeft') {
+        if (verses.length === 0) return;
+        currentVerse = (currentVerse - 1 + verses.length) % verses.length;
+        render();
+        if (autoAdvance) startAutoAdvance();
+    }
 });
 
 backgroundButton.addEventListener('click', () => backgroundInput.click());

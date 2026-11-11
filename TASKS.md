@@ -29,6 +29,10 @@
 - [x] Mostrar versos numerados de la Biblia (versiones cargadas desde `bibles/`) ✅
 - [x] Panel lateral izquierdo con lista de canciones / capítulos ✅ (y mensaje "No hay canciones." si no hay)
 - [x] Formulario para crear una nueva canción con letra desde la app ✅
+- [x] Avance automático de versos (timer, botón en visor) ✅
+- [x] Navegación de versos con teclado (← / →) ✅
+- [x] Contador de verso actual (p. ej. "Verso 5 — 3 de 31") ✅
+- [x] Overlay de fondo para legibilidad del texto ✅
 
 ## Fase 4: Controlador y monitores
 - [x] Detectar monitores ✅ (backend `GetScreens` + UI que lista monitores)

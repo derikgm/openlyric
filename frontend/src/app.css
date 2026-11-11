@@ -35,9 +35,20 @@
     margin-top: 0.5rem;
 }
 
+#lyrics-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 1;
+    pointer-events: none;
+}
+
 #lyrics {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     font-size: 2rem;
     line-height: 1.6;
     white-space: pre-wrap;
@@ -63,6 +74,21 @@
 }
 
 #next-verse:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+#auto-advance-button {
+    margin-left: 1rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    cursor: pointer;
+}
+
+#auto-advance-button:hover {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
