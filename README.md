@@ -25,7 +25,7 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 
 ## Estructura
 
-- `songs/` - Coloca aquí tus archivos de canciones (`.txt`, `.xml`, `.json`). Compatible con formatos comunes de Holyric.
+- `songs/` - Coloca aquí tus archivos de canciones (`.txt`, `.xml`, `.json`). Compatible con formatos comunes de Holyric. En los `.txt`, las líneas en blanco separan bloques de proyección. Incluye `sublime-gracia.txt` como ejemplo.
 - `bibles/` - Coloca aquí los JSON de versiones de la Biblia (formato tipo Reina-Valera / OSIS con libros, capítulos y versos). Cada archivo `.json` dentro se registra como una versión.
 - `backgrounds/` - Coloca aquí tus imágenes de fondo (`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`). Cada imagen aparecerá en la galería de fondos dentro de Liricas para cambiar rápidamente.
 

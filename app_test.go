@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -143,5 +144,38 @@ func TestPresentationStateRoundTrip(t *testing.T) {
 	}
 	if background != "data:image/png;base64,BBBB" {
 		t.Fatalf("unexpected background: %q", background)
+	}
+}
+
+func TestParseTXTSongPreservesBlocks(t *testing.T) {
+	path := writeTempSongFile(t, "cancion.txt", "Title: Sublime gracia\nArtist: John Newton\n\nEstrofa uno.\n\nEstrofa dos.\n")
+
+	song, err := ParseSongFile(path)
+	if err != nil {
+		t.Fatalf("error parsing txt: %v", err)
+	}
+
+	if song.Title != "Sublime gracia" {
+		t.Fatalf("unexpected title: %q", song.Title)
+	}
+	if song.Lyrics != "Estrofa uno.\n\nEstrofa dos." {
+		t.Fatalf("blank lines between blocks were not preserved: %q", song.Lyrics)
+	}
+}
+
+func TestBundledExampleSongHasFourBlocks(t *testing.T) {
+	path := filepath.Join("songs", "sublime-gracia.txt")
+
+	song, err := ParseSongFile(path)
+	if err != nil {
+		t.Fatalf("error parsing bundled example song: %v", err)
+	}
+	if song.Title == "" {
+		t.Fatal("expected a title for the bundled example song")
+	}
+
+	blocks := strings.Split(song.Lyrics, "\n\n")
+	if len(blocks) != 4 {
+		t.Fatalf("expected 4 blocks, got %d", len(blocks))
 	}
 }

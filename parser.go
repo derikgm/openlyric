@@ -83,29 +83,36 @@ func parseTXTSong(path string) (*Song, error) {
 
 	song := &Song{}
 	lyrics := []string{}
+	started := false
 
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
+	for _, rawLine := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(rawLine)
+
+		// Keep blank lines between lyric lines: they separate projection blocks.
 		if line == "" {
+			if started && len(lyrics) > 0 && lyrics[len(lyrics)-1] != "" {
+				lyrics = append(lyrics, "")
+			}
 			continue
 		}
 
 		key := strings.ToLower(line)
 		switch {
 		case strings.HasPrefix(key, "title:"):
-			song.Title = strings.TrimSpace(strings.TrimPrefix(line, "Title:"))
+			song.Title = stripPrefixI(line, "title:")
 		case strings.HasPrefix(key, "artist:"):
 			song.Artist = stripPrefixI(line, "artist:")
 		case strings.HasPrefix(key, "artista:"):
 			song.Artist = stripPrefixI(line, "artista:")
 		case strings.HasPrefix(key, "background:"):
-			song.Background = strings.TrimSpace(strings.TrimPrefix(line, "Background:"))
+			song.Background = stripPrefixI(line, "background:")
 		default:
+			started = true
 			lyrics = append(lyrics, line)
 		}
 	}
 
-	song.Lyrics = strings.Join(lyrics, "\n")
+	song.Lyrics = strings.TrimSpace(strings.Join(lyrics, "\n"))
 	return song, nil
 }
 
