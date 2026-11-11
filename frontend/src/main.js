@@ -7,8 +7,10 @@ import {
   LoadBibleSongs,
   CreateSong,
   SetBackground,
+  SetBackgroundFromFile,
   GetScreens,
   GetBackground,
+  LoadBackgrounds,
 } from '../wailsjs/go/main/App';
 
 const appElement = document.querySelector('#app');
@@ -22,6 +24,10 @@ let currentTab = 'lyricas'; // 'lyricas' | 'biblia' | 'opciones'
 let currentSongIndex = 0;
 let currentBlockIndex = 0;
 let blocks = [];
+
+// Fondos (galería de imágenes)
+let backgrounds = [];
+let currentBackgroundIndex = -1;
 
 // Biblia
 let currentVersionIndex = 0;
@@ -77,6 +83,8 @@ const i18n = {
     donations: 'Donaciones',
     donationsText: '¿Te gusta OpenLyric? Apoya el proyecto con una donación.',
     donateBtn: 'Donar',
+    backgrounds: 'Fondos',
+    noBackgrounds: 'Sin fondos.',
     screens: 'Monitores',
     noScreens: 'No se detectaron monitores.',
     errorLoading: 'Error al cargar.',
@@ -122,6 +130,8 @@ const i18n = {
     donations: 'Donations',
     donationsText: 'Like OpenLyric? Support the project with a donation.',
     donateBtn: 'Donate',
+    backgrounds: 'Backgrounds',
+    noBackgrounds: 'No backgrounds.',
     screens: 'Monitors',
     noScreens: 'No monitors detected.',
     errorLoading: 'Error loading.',
@@ -271,6 +281,61 @@ function selectLyricasBlock(index) {
   currentBlockIndex = index;
   render();
   if (autoAdvance) startAutoAdvance();
+}
+
+// ---------- Fondos (galería de imágenes) ----------
+async function loadBackgrounds() {
+  const loaded = await LoadBackgrounds();
+  backgrounds = loaded ?? [];
+  renderBackgrounds();
+}
+
+function renderBackgrounds() {
+  const bgEl = document.getElementById('lyricas-backgrounds');
+  if (!bgEl) return;
+
+  bgEl.innerHTML = '';
+  const hBg = document.createElement('h3');
+  hBg.innerText = t('backgrounds');
+  bgEl.appendChild(hBg);
+
+  if (backgrounds.length === 0) {
+    const empty = document.createElement('div');
+    empty.id = 'lyricas-no-backgrounds';
+    empty.innerText = t('noBackgrounds');
+    bgEl.appendChild(empty);
+    return;
+  }
+
+  for (let i = 0; i < backgrounds.length; i++) {
+    const item = document.createElement('div');
+    item.className = 'lyricas-bg-item' + (i === currentBackgroundIndex ? ' active' : '');
+    item.innerText = backgrounds[i];
+    item.dataset.index = String(i);
+    item.addEventListener('click', async () => {
+      await selectBackground(Number(item.dataset.index));
+    });
+    bgEl.appendChild(item);
+  }
+}
+
+async function selectBackground(index) {
+  if (backgrounds.length === 0) return;
+  currentBackgroundIndex = index;
+  const filename = backgrounds[currentBackgroundIndex];
+
+  try {
+    await SetBackgroundFromFile(filename);
+    localStorage.setItem('openlyric:background', filename);
+    const viewer = document.getElementById('viewer');
+    if (viewer) {
+      viewer.style.backgroundImage = `url('backgrounds/${filename}')`;
+    }
+    renderBackgrounds();
+    document.getElementById('lyricas-status').innerText = 'Fondo: ' + filename;
+  } catch (err) {
+    document.getElementById('lyricas-status').innerText = t('errorBackground');
+  }
 }
 
 function prevLyricasBlock() {
@@ -512,6 +577,13 @@ async function init() {
     songs = [];
   }
 
+  // Cargar fondos (galería de imágenes)
+  try {
+    await loadBackgrounds();
+  } catch (e) {
+    backgrounds = [];
+  }
+
   // Cargar versiones
   try {
     await loadBibleVersions();
@@ -638,6 +710,7 @@ appElement.innerHTML = `
           <div id="lyricas-status" style="margin-top:0.5rem; font-size:0.85rem; opacity:0.9;"></div>
         </div>
         <div id="lyricas-blocks"></div>
+        <div id="lyricas-backgrounds" style="margin-top:1rem;"></div>
       </aside>
       <main id="lyricas-main">
         <h1 id="lyricas-song-title"></h1>

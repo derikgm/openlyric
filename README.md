@@ -14,7 +14,8 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 - Selección de fondo mediante imagen (`data URL`) con persistencia.
 - Carga de canciones desde `songs/` en formatos `.txt`, `.xml` y `.json`.
 - Carga de versiones de la Biblia desde `bibles/` en formato JSON.
-- Creación automática de las carpetas `songs/` y `bibles/` si no existen.
+- Creación automática de las carpetas `songs/`, `bibles/` y `backgrounds/` si no existen.
+- Galería de fondos en Liricas: selecciona rápidamente una foto de fondo desde la carpeta `backgrounds/` (ideal para dejar una imagen mientras no se muestra una letra).
 - Creación de canciones con letra desde la app.
 - Diseño responsive para tablets y móviles.
 - Persistencia: fondo, última versión e idioma guardados automáticamente.
@@ -24,7 +25,7 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 
 - `songs/` - Coloca aquí tus archivos de canciones (`.txt`, `.xml`, `.json`). Compatible con formatos comunes de Holyric.
 - `bibles/` - Coloca aquí los JSON de versiones de la Biblia (formato tipo Reina-Valera / OSIS con libros, capítulos y versos). Cada archivo `.json` dentro se registra como una versión.
-- `backgrounds/` - Coloca aquí tus imágenes de fondo (`.jpg`, `.jpeg`, `.png`, `.webp`).
+- `backgrounds/` - Coloca aquí tus imágenes de fondo (`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`). Cada imagen aparecerá en la galería de fondos dentro de Liricas para cambiar rápidamente.
 
 ## Uso
 
@@ -34,8 +35,9 @@ Visor de letras y versículos para segundo monitor/proyector, ligero y enfocado 
 4. Ejecuta `openlyric`
 5. Desde la topbar elige **Liricas**, **Biblia** u **Opciones**
 6. En Liricas: selecciona una canción y haz clic en el bloque que quieras mostrar en pantalla
-7. En Biblia: elige versión, libro y capítulo para mostrar los versículos
-8. En Opciones: cambia fondo, idioma o visita la sección de donaciones
+7. En Liricas → Fondos: elige una foto de la galería para mostrarla como fondo mientras no hay letra
+8. En Biblia: elige versión, libro y capítulo para mostrar los versículos
+9. En Opciones: cambia fondo, idioma o visita la sección de donaciones
 
 ## Desarrollo
 

@@ -437,3 +437,29 @@
         padding: 0.75rem;
     }
 }
+
+/* ---------- Fondos (galería en Liricas) ---------- */
+.lyricas-bg-item {
+    padding: 0.6rem 0.85rem;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 2px solid transparent;
+    margin-bottom: 0.35rem;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lyricas-bg-item:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.lyricas-bg-item.active {
+    background: rgba(0, 150, 255, 0.25);
+    border-color: rgba(0, 150, 255, 0.6);
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,21 +15,23 @@ import (
 
 // App struct
 type App struct {
-	ctx        context.Context
-	songsDir   string
-	biblesDir  string
-	background string
-	bibles     []*BibleVersion
-	biblesMap  map[string]*BibleVersion
-	configFile string
+	ctx            context.Context
+	songsDir       string
+	biblesDir      string
+	backgroundsDir string
+	background     string
+	bibles         []*BibleVersion
+	biblesMap      map[string]*BibleVersion
+	configFile     string
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		bibles:     []*BibleVersion{},
-		biblesMap:  map[string]*BibleVersion{},
-		configFile: "openlyric-config.json",
+		bibles:         []*BibleVersion{},
+		biblesMap:      map[string]*BibleVersion{},
+		backgroundsDir: "backgrounds",
+		configFile:     "openlyric-config.json",
 	}
 }
 
@@ -46,12 +49,15 @@ func (a *App) startup(ctx context.Context) {
 		println("Error loading config:", err.Error())
 	}
 
-	// Ensure the songs and bibles folders exist so users can add content later on.
+	// Ensure the songs, bibles and backgrounds folders exist so users can add content later on.
 	if err := os.MkdirAll(a.songsDir, 0755); err != nil {
 		println("Error creating songs folder:", err.Error())
 	}
 	if err := os.MkdirAll(a.biblesDir, 0755); err != nil {
 		println("Error creating bibles folder:", err.Error())
+	}
+	if err := os.MkdirAll(a.backgroundsDir, 0755); err != nil {
+		println("Error creating backgrounds folder:", err.Error())
 	}
 
 	// Open the lyrics viewer on the second monitor when one is available.
@@ -316,6 +322,62 @@ func (a *App) SetBackground(background string) error {
 // GetBackground returns the background image (data URL) persisted by the user.
 func (a *App) GetBackground() string {
 	return a.background
+}
+
+// LoadBackgrounds returns the list of image files available in the backgrounds directory.
+func (a *App) LoadBackgrounds() ([]string, error) {
+	entries, err := os.ReadDir(a.backgroundsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+
+	images := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" && ext != ".gif" {
+			continue
+		}
+
+		images = append(images, entry.Name())
+	}
+
+	return images, nil
+}
+
+// SetBackgroundFromFile sets the background from an image file located in the backgrounds folder,
+// converts it to a data URL and persists it.
+func (a *App) SetBackgroundFromFile(filename string) error {
+	path := filepath.Join(a.backgroundsDir, filename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	ext := strings.ToLower(filepath.Ext(filename))
+	var mime string
+	switch ext {
+	case ".jpg", ".jpeg":
+		mime = "image/jpeg"
+	case ".png":
+		mime = "image/png"
+	case ".webp":
+		mime = "image/webp"
+	case ".gif":
+		mime = "image/gif"
+	default:
+		mime = "application/octet-stream"
+	}
+
+	dataUrl := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
+	a.background = dataUrl
+	return a.saveConfig()
 }
 
 // GetScreens returns the list of monitors (screens) available.

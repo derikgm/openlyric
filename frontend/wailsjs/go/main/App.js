@@ -18,6 +18,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function LoadBackgrounds() {
+  return window['go']['main']['App']['LoadBackgrounds']();
+}
+
 export function LoadBibleSongs(arg1) {
   return window['go']['main']['App']['LoadBibleSongs'](arg1);
 }
@@ -32,4 +36,8 @@ export function LoadSongs() {
 
 export function SetBackground(arg1) {
   return window['go']['main']['App']['SetBackground'](arg1);
+}
+
+export function SetBackgroundFromFile(arg1) {
+  return window['go']['main']['App']['SetBackgroundFromFile'](arg1);
 }

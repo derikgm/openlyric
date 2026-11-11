@@ -55,7 +55,7 @@
 - [x] Añadir licencia ✅ (MIT - archivo `LICENSE`)
 - [x] Añadir sección de contribución ✅ (sección actualizada en README)
 - [x] Añadir soporte de versiones de la Biblia (JSON tipo Reina-Valera) ✅ (backend `bible.go`, `LoadBibleVersions`, `LoadBibleSongs`; frontend selector de versión)
-- [x] Pulido UX: fade entre versos, contador de verso, avance automático, teclado (←/→) ✅
+- [x] Fondos / galería de imágenes (carpeta `backgrounds/`) ✅ (selección rápida de fotos desde la sección Liricas)
 - [x] Persistencia, responsive e i18n ES/EN ✅
 - [x] Tests unitarios Go ✅
 

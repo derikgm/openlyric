@@ -11,6 +11,8 @@ export function GetScreens():Promise<Array<frontend.Screen>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function LoadBackgrounds():Promise<Array<string>>;
+
 export function LoadBibleSongs(arg1:string):Promise<Array<main.Song>>;
 
 export function LoadBibleVersions():Promise<Array<main.BibleVersion>>;
@@ -18,3 +20,5 @@ export function LoadBibleVersions():Promise<Array<main.BibleVersion>>;
 export function LoadSongs():Promise<Array<main.Song>>;
 
 export function SetBackground(arg1:string):Promise<void>;
+
+export function SetBackgroundFromFile(arg1:string):Promise<void>;
