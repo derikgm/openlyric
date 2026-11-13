@@ -9,7 +9,7 @@ import {
   SetBackground,
   GetScreens,
   GetBackground,
-} from '../wailsjs/go/main/App';
+} from './api.js';
 
 const appElement = document.querySelector('#app');
 
