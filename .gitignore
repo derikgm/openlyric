@@ -3,3 +3,7 @@ bin
 node_modules
 frontend/dist
 openlyric
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
