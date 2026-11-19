@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "openlyric",
-        "width": 800,
-        "height": 600
+        "title": "OpenLyric",
+        "label": "main",
+        "width": 1024,
+        "height": 768,
+        "fullscreen": true
       }
     ],
     "security": {

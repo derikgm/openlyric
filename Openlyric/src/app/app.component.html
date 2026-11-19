@@ -1,21 +1,305 @@
-<main class="container">
-  <h1>Welcome to Tauri + Angular!</h1>
+<div id="viewer" [style.background-image]="backgroundStyle()">
+  <div id="lyrics-overlay"></div>
 
-  <div class="row">
-    <a href="https://tauri.app" target="_blank">
-      <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
-    </a>
-    <a href="https://angular.io" target="_blank">
-      <img src="/assets/angular.svg" class="logo angular" alt="Angular logo" />
-    </a>
+  <nav id="topbar">
+    <div id="topbar-tabs">
+      <button
+        class="tab"
+        [class.active]="tab() === 'lyricas'"
+        (click)="showTab('lyricas')"
+      >
+        {{ tr('tabLyricas') }}
+      </button>
+      <button
+        class="tab"
+        [class.active]="tab() === 'biblia'"
+        (click)="showTab('biblia')"
+      >
+        {{ tr('tabBiblia') }}
+      </button>
+      <button
+        class="tab"
+        [class.active]="tab() === 'opciones'"
+        (click)="showTab('opciones')"
+      >
+        {{ tr('tabOpciones') }}
+      </button>
+    </div>
+  </nav>
+
+  <div id="content">
+    @if (tab() === 'lyricas') {
+      <section id="view-lyricas" class="view">
+        <aside id="lyricas-sidebar">
+          <div id="lyricas-song-list">
+            <h3>{{ tr('songs') }}</h3>
+
+            @if (songs().length === 0) {
+              <div id="lyricas-empty">{{ tr('noSongs') }}</div>
+            } @else {
+              @for (song of songs(); track song.id; let i = $index) {
+                <div
+                  class="lyricas-item"
+                  [class.active]="i === currentSongIndex()"
+                  (click)="selectSong(i)"
+                >
+                  {{ song.title }}
+                </div>
+              }
+              <button id="lyricas-new-song" (click)="newSongOpen.set(true)">
+                {{ tr('newSong') }}
+              </button>
+            }
+          </div>
+
+          @if (newSongOpen()) {
+            <div id="lyricas-new-song-form" style="margin-top: 1rem">
+              <input
+                id="lyricas-new-title"
+                type="text"
+                [placeholder]="tr('title')"
+                [(ngModel)]="newTitle"
+              />
+              <input
+                id="lyricas-new-artist"
+                type="text"
+                [placeholder]="tr('artist')"
+                [(ngModel)]="newArtist"
+              />
+              <textarea
+                id="lyricas-new-lyrics"
+                [placeholder]="tr('lyrics')"
+                [(ngModel)]="newLyrics"
+              ></textarea>
+              <div style="margin-top: 0.5rem">
+                <button id="lyricas-new-save" (click)="saveSong()">
+                  {{ tr('save') }}
+                </button>
+                <button id="lyricas-new-cancel" (click)="cancelNewSong()">
+                  {{ tr('cancel') }}
+                </button>
+              </div>
+              <div
+                id="lyricas-status"
+                style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.9"
+              >
+                {{ songStatus() }}
+              </div>
+            </div>
+          }
+
+          @if (currentSong()) {
+            <div id="lyricas-blocks">
+              <h3>{{ tr('blocks') }}</h3>
+
+              @if (blocks().length === 0) {
+                <div id="lyricas-no-blocks">{{ tr('noBlocks') }}</div>
+              } @else {
+                @for (block of blocks(); track $index; let i = $index) {
+                  <div
+                    class="lyricas-block"
+                    [class.active]="i === currentBlockIndex()"
+                    (click)="selectBlock(i)"
+                  >
+                    {{ tr('blockShort') }} {{ i + 1 }}
+                  </div>
+                }
+              }
+            </div>
+          }
+        </aside>
+
+        <main id="lyricas-main">
+          <h1 id="lyricas-song-title">{{ currentSong()?.title ?? '' }}</h1>
+          <div id="lyricas-block-display">{{ currentBlockText() }}</div>
+
+          @if (currentSong()) {
+            <div
+              id="lyricas-controls"
+              style="
+                margin-top: 1.5rem;
+                display: flex;
+                gap: 0.75rem;
+                justify-content: center;
+              "
+            >
+              <button id="lyricas-prev-block" (click)="prevBlock()">
+                {{ tr('prevBlock') }}
+              </button>
+              <button id="lyricas-next-block" (click)="nextBlock()">
+                {{ tr('nextBlock') }}
+              </button>
+            </div>
+          }
+        </main>
+      </section>
+    }
+
+    @if (tab() === 'biblia') {
+      <section id="view-biblia" class="view">
+        <aside id="biblia-sidebar">
+          <div style="margin-bottom: 0.75rem">
+            <label>{{ tr('version') }} </label>
+            <select
+              id="biblia-version-select"
+              [ngModel]="versionAbbr()"
+              (ngModelChange)="onVersionSelected($event)"
+            >
+              @for (version of versions(); track version.abbreviation) {
+                <option [value]="version.abbreviation">
+                  {{
+                    version.translation
+                      ? version.translation + ' (' + version.abbreviation + ')'
+                      : version.abbreviation
+                  }}
+                </option>
+              }
+            </select>
+          </div>
+
+          @if (versions().length === 0) {
+            <div
+              id="biblia-no-versions"
+              style="font-size: 0.9rem; opacity: 0.8"
+            >
+              {{ tr('noVersions') }}
+            </div>
+          }
+
+          <div id="biblia-books">
+            <h3>{{ tr('books') }}</h3>
+            @for (book of books(); track book.name) {
+              <div
+                class="lyricas-item"
+                [class.active]="book.name === selectedBook()"
+                (click)="selectBook(book.name)"
+              >
+                {{ book.name }}
+              </div>
+            }
+          </div>
+        </aside>
+
+        <main id="biblia-main">
+          <div id="biblia-chapters">
+            <h3>{{ tr('chapters') }}</h3>
+            @for (chapter of chapters(); track chapter.id; let i = $index) {
+              <div
+                class="lyricas-item"
+                [class.active]="i === selectedChapterIndex()"
+                (click)="selectChapter(i)"
+              >
+                {{ chapter.title }}
+              </div>
+            }
+          </div>
+
+          <div id="biblia-verses">
+            @if (bibleVerses().length === 0) {
+              <div>{{ tr('noVerses') }}</div>
+            } @else {
+              @for (verse of bibleVerses(); track $index; let i = $index) {
+                <div
+                  class="lyricas-block"
+                  [class.active]="i === currentVerseIndex()"
+                  (click)="selectVerse(i)"
+                >
+                  {{ tr('verse') }} {{ i + 1 }}
+                </div>
+              }
+            }
+          </div>
+
+          <div
+            id="biblia-song-title"
+            style="font-size: 1.5rem; margin-bottom: 0.5rem; opacity: 0.9"
+          >
+            {{ bibleTitle() }}
+          </div>
+          <div id="biblia-block-display">{{ bibleBlockText() }}</div>
+
+          @if (currentChapter()) {
+            <div
+              id="biblia-controls"
+              style="
+                margin-top: 1.5rem;
+                display: flex;
+                gap: 0.75rem;
+                justify-content: center;
+              "
+            >
+              <button id="biblia-prev-verse" (click)="prevVerse()">
+                {{ tr('prevBlock') }}
+              </button>
+              <button id="biblia-next-verse" (click)="nextVerse()">
+                {{ tr('nextBlock') }}
+              </button>
+            </div>
+          }
+        </main>
+      </section>
+    }
+
+    @if (tab() === 'opciones') {
+      <section id="view-opciones" class="view">
+        <aside id="opciones-sidebar">
+          <h3>{{ tr('background') }}</h3>
+          <input
+            id="opciones-background"
+            type="file"
+            accept="image/*"
+            (change)="onBackgroundSelected($event)"
+          />
+          <div
+            id="opciones-status"
+            style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.9"
+          >
+            {{ backgroundStatus() }}
+          </div>
+
+          <hr
+            style="
+              margin: 1rem 0;
+              border: none;
+              border-top: 1px solid rgba(255, 255, 255, 0.15);
+            "
+          />
+
+          <h3>{{ tr('language') }}</h3>
+          <select
+            id="opciones-lang"
+            [ngModel]="lang()"
+            (ngModelChange)="setLang($event)"
+          >
+            <option value="es">{{ tr('langEs') }}</option>
+            <option value="en">{{ tr('langEn') }}</option>
+          </select>
+
+          <hr
+            style="
+              margin: 1rem 0;
+              border: none;
+              border-top: 1px solid rgba(255, 255, 255, 0.15);
+            "
+          />
+
+          <h3>{{ tr('donations') }}</h3>
+          <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.75rem">
+            {{ tr('donationsText') }}
+          </p>
+          <button id="opciones-donate">{{ tr('donateBtn') }}</button>
+        </aside>
+
+        <main id="opciones-main">
+          <div id="opciones-block-display"></div>
+        </main>
+      </section>
+    }
   </div>
-  <p>Click on the logos to learn more about the frameworks</p>
 
-  <form class="row" (submit)="greet($event, greetInput.value)">
-    <input #greetInput id="greet-input" placeholder="Enter a name..." />
-    <button type="submit">Greet</button>
-  </form>
-  <p>{{ greetingMessage() }}</p>
-
-  <router-outlet />
-</main>
+  <div id="global-controls">
+    <button id="auto-advance-button" (click)="toggleAutoAdvance()">
+      {{ autoAdvance() ? tr('autoAdvanceOn') : tr('autoAdvanceOff') }}
+    </button>
+  </div>
+</div>
