@@ -1,9 +1,14 @@
+# Dependencias / builds
+node_modules/
+dist/
+.angular/
 build/
 bin
-node_modules
-frontend/dist
+target/
+
+# Binarios / config de la app
 openlyric
+openlyric-config.json
 
 # Tauri
-src-tauri/target/
 src-tauri/gen/
