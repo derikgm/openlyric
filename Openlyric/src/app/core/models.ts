@@ -46,3 +46,55 @@ export interface ScreenInfo {
   x: number;
   y: number;
 }
+
+/** Entrada del catálogo remoto de Biblias. */
+export interface CatalogEntry {
+  id: string;
+  name: string;
+  abbreviation: string;
+  language: string;
+  description: string;
+  url: string;
+  size: number;
+  filename: string;
+}
+
+export type DownloadStatus =
+  | 'downloading'
+  | 'cancelling'
+  | 'done'
+  | 'cancelled'
+  | 'error';
+
+export interface BibleDownload {
+  id: string;
+  url: string;
+  name: string;
+  filename: string;
+  downloaded: number;
+  total: number;
+  status: DownloadStatus;
+  message?: string;
+}
+
+export interface DownloadProgressEvent {
+  id: string;
+  filename: string;
+  downloaded: number;
+  total: number;
+}
+
+export interface DownloadDoneEvent {
+  id: string;
+  filename: string;
+  abbreviation: string;
+}
+
+export interface DownloadErrorEvent {
+  id: string;
+  message: string;
+}
+
+export interface DownloadCancelledEvent {
+  id: string;
+}

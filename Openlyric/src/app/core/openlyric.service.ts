@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 
-import { BibleVersion, ScreenInfo, Song } from './models';
+import { BibleVersion, CatalogEntry, ScreenInfo, Song } from './models';
 
 /**
  * Envoltorio tipado de los comandos Rust expuestos por Tauri.
@@ -35,6 +35,30 @@ export class OpenlyricService {
 
   getScreens(): Promise<ScreenInfo[]> {
     return invoke<ScreenInfo[]>('get_screens');
+  }
+
+  getCatalogUrl(): Promise<string> {
+    return invoke<string>('get_catalog_url');
+  }
+
+  setCatalogUrl(url: string): Promise<void> {
+    return invoke<void>('set_catalog_url', { url });
+  }
+
+  fetchBibleCatalog(): Promise<CatalogEntry[]> {
+    return invoke<CatalogEntry[]>('fetch_bible_catalog');
+  }
+
+  downloadBible(entry: CatalogEntry): Promise<string> {
+    return invoke<string>('download_bible', { entry });
+  }
+
+  cancelBibleDownload(id: string): Promise<void> {
+    return invoke<void>('cancel_bible_download', { id });
+  }
+
+  clearBackground(): Promise<void> {
+    return invoke<void>('clear_background');
   }
 
   greet(name: string): Promise<string> {

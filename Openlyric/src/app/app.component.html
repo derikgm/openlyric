@@ -241,58 +241,362 @@
     }
 
     @if (tab() === 'opciones') {
-      <section id="view-opciones" class="view">
-        <aside id="opciones-sidebar">
-          <h3>{{ tr('background') }}</h3>
-          <input
-            id="opciones-background"
-            type="file"
-            accept="image/*"
-            (change)="onBackgroundSelected($event)"
-          />
-          <div
-            id="opciones-status"
-            style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.9"
-          >
-            {{ backgroundStatus() }}
+      <section id="view-opciones" class="view view-options">
+        <div class="options-page">
+          <header class="options-header">
+            <div class="options-header-mark">⚙</div>
+            <div>
+              <h1>{{ tr('optionsTitle') }}</h1>
+              <p>{{ tr('optionsSubtitle') }}</p>
+            </div>
+          </header>
+
+          <div class="options-grid">
+            <!-- Biblias -->
+            <article id="opt-bibles" class="option-card option-card-wide">
+              <div class="option-card-head">
+                <div class="option-icon">📖</div>
+                <div class="option-card-title">
+                  <h2>{{ tr('optBiblesTitle') }}</h2>
+                  <p>{{ tr('optBiblesDesc') }}</p>
+                </div>
+                <span class="option-badge">
+                  {{ versions().length }} {{ tr('optInstalledCount') }}
+                </span>
+              </div>
+
+              <div class="option-body">
+                <div class="installed-block">
+                  <span class="field-label">{{ tr('optInstalled') }}</span>
+                  @if (versions().length === 0) {
+                    <span class="muted">{{ tr('noVersions') }}</span>
+                  } @else {
+                    <div class="chips">
+                      @for (version of versions(); track version.id) {
+                        <span class="chip">
+                          <strong>
+                            {{
+                              version.abbreviation ||
+                                version.translation ||
+                                version.id
+                            }}
+                          </strong>
+                          @if (version.translation) {
+                            <span class="chip-sub">{{ version.translation }}</span>
+                          }
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <div class="catalog-url-block">
+                  <label class="field-label" for="catalog-url">
+                    {{ tr('optCatalogUrl') }}
+                  </label>
+                  <div class="input-group">
+                    <input
+                      id="catalog-url"
+                      type="url"
+                      autocomplete="off"
+                      spellcheck="false"
+                      [placeholder]="tr('optCatalogUrlPlaceholder')"
+                      [(ngModel)]="catalogUrl"
+                      [disabled]="catalogLoading()"
+                      (keydown.enter)="loadCatalog()"
+                    />
+                    <button
+                      id="catalog-load"
+                      class="btn btn-primary"
+                      type="button"
+                      (click)="loadCatalog()"
+                      [disabled]="catalogLoading()"
+                    >
+                      @if (catalogLoading()) {
+                        <span class="spinner" aria-hidden="true"></span>
+                        {{ tr('optLoading') }}
+                      } @else {
+                        {{
+                          catalogLoaded()
+                            ? tr('optReloadCatalog')
+                            : tr('optLoadCatalog')
+                        }}
+                      }
+                    </button>
+                  </div>
+                  <p class="hint">{{ tr('optCatalogHint') }}</p>
+
+                  @if (catalogError()) {
+                    <div class="alert alert-error" role="alert">
+                      <span class="alert-icon">⚠</span>
+                      <span>{{ catalogError() }}</span>
+                    </div>
+                  } @else if (catalogStatus()) {
+                    <div class="alert alert-success" role="status">
+                      <span class="alert-icon">✓</span>
+                      <span>{{ catalogStatus() }}</span>
+                    </div>
+                  }
+                </div>
+
+                @if (downloads().length > 0) {
+                  <div class="downloads">
+                    @for (download of downloads(); track download.id) {
+                      <div class="download" [attr.data-status]="download.status">
+                        <div class="download-head">
+                          <span class="download-name">
+                            {{ download.name || download.filename }}
+                          </span>
+                          <span class="download-state">
+                            {{ downloadLabel(download) }}
+                            @if (
+                              download.status === 'downloading' &&
+                              download.total > 0
+                            ) {
+                              · {{ progressPercent(download) }}%
+                            }
+                          </span>
+                        </div>
+
+                        <div
+                          class="progress"
+                          [class.is-indeterminate]="
+                            download.status === 'downloading' &&
+                            download.total <= 0
+                          "
+                        >
+                          <div
+                            class="progress-fill"
+                            [style.width.%]="
+                              download.status === 'done'
+                                ? 100
+                                : progressPercent(download)
+                            "
+                          ></div>
+                        </div>
+
+                        <div class="download-foot">
+                          <span class="download-bytes">
+                            {{ formatBytes(download.downloaded) }}
+                            @if (download.total > 0) {
+                              / {{ formatBytes(download.total) }}
+                            }
+                          </span>
+
+                          @if (download.status === 'downloading') {
+                            <button
+                              class="btn btn-danger btn-sm"
+                              type="button"
+                              (click)="cancelDownload(download)"
+                            >
+                              {{ tr('optCancel') }}
+                            </button>
+                          } @else if (download.status === 'cancelling') {
+                            <button class="btn btn-ghost btn-sm" type="button" disabled>
+                              {{ tr('optStatusCancelling') }}
+                            </button>
+                          } @else {
+                            <button
+                              class="btn btn-ghost btn-sm"
+                              type="button"
+                              (click)="dismissDownload(download)"
+                            >
+                              {{ tr('optDismiss') }}
+                            </button>
+                          }
+                        </div>
+
+                        @if (download.status === 'error' && download.message) {
+                          <p class="download-error">{{ download.message }}</p>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+
+                <div class="catalog-block">
+                  <div class="section-head">
+                    <span class="field-label">
+                      {{ tr('optCatalogTitle') }}
+                    </span>
+                    @if (catalog().length > 0) {
+                      <span class="count-pill">
+                        {{ catalog().length }} {{ tr('optCatalogAvailable') }}
+                      </span>
+                    }
+                  </div>
+
+                  @if (catalogLoading() && catalog().length === 0) {
+                    <div class="catalog-loading">
+                      <span class="spinner spinner-lg" aria-hidden="true"></span>
+                      <span>{{ tr('optLoading') }}</span>
+                    </div>
+                  } @else if (!catalogLoaded()) {
+                    <div class="empty-state">
+                      <span class="empty-icon">☁</span>
+                      <p>{{ tr('optCatalogPrompt') }}</p>
+                    </div>
+                  } @else if (catalog().length === 0) {
+                    <div class="empty-state">
+                      <span class="empty-icon">📭</span>
+                      <p>{{ tr('optCatalogEmpty') }}</p>
+                    </div>
+                  } @else {
+                    <ul class="catalog-list">
+                      @for (entry of catalog(); track entry.url) {
+                        <li class="catalog-item">
+                          <div class="catalog-main">
+                            <div class="catalog-title">
+                              <span class="catalog-name">{{ entry.name }}</span>
+                              @if (entry.abbreviation) {
+                                <span class="tag">{{ entry.abbreviation }}</span>
+                              }
+                              @if (isInstalled(entry)) {
+                                <span class="tag tag-ok">
+                                  ✓ {{ tr('optInstalled') }}
+                                </span>
+                              }
+                            </div>
+                            <p class="catalog-desc">
+                              {{ entry.description || tr('optNoDescription') }}
+                            </p>
+                            <div class="catalog-meta">
+                              @if (entry.language) {
+                                <span>{{ entry.language }}</span>
+                              }
+                              @if (entry.size > 0) {
+                                <span>{{ formatBytes(entry.size) }}</span>
+                              }
+                            </div>
+                          </div>
+
+                          <button
+                            class="btn"
+                            type="button"
+                            [class.btn-primary]="!isInstalled(entry)"
+                            [class.btn-ghost]="isInstalled(entry)"
+                            [disabled]="isEntryDownloading(entry)"
+                            (click)="startDownload(entry)"
+                          >
+                            @if (isEntryDownloading(entry)) {
+                              <span class="spinner" aria-hidden="true"></span>
+                              {{ tr('optDownloading') }}
+                            } @else if (isInstalled(entry)) {
+                              {{ tr('optReinstall') }}
+                            } @else {
+                              ↓ {{ tr('optDownload') }}
+                            }
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+              </div>
+            </article>
+
+            <!-- Apariencia -->
+            <article id="opt-appearance" class="option-card">
+              <div class="option-card-head">
+                <div class="option-icon">🎨</div>
+                <div class="option-card-title">
+                  <h2>{{ tr('optAppearanceTitle') }}</h2>
+                  <p>{{ tr('optAppearanceDesc') }}</p>
+                </div>
+              </div>
+
+              <div class="option-body">
+                @if (background()) {
+                  <div
+                    class="background-preview"
+                    [style.background-image]="backgroundStyle()"
+                  ></div>
+                } @else {
+                  <div class="background-preview is-empty">
+                    <span>{{ tr('optNoBackground') }}</span>
+                  </div>
+                }
+
+                <input
+                  id="opt-background-file"
+                  class="sr-only"
+                  type="file"
+                  accept="image/*"
+                  (change)="onBackgroundSelected($event)"
+                />
+
+                <div class="button-row">
+                  <label class="btn btn-primary" for="opt-background-file">
+                    {{ tr('selectBackground') }}
+                  </label>
+                  <button
+                    class="btn btn-ghost"
+                    type="button"
+                    [disabled]="!background()"
+                    (click)="clearBackground()"
+                  >
+                    {{ tr('optRemoveBackground') }}
+                  </button>
+                </div>
+
+                @if (backgroundStatus()) {
+                  <p class="status-text">{{ backgroundStatus() }}</p>
+                }
+              </div>
+            </article>
+
+            <!-- Idioma -->
+            <article id="opt-language" class="option-card">
+              <div class="option-card-head">
+                <div class="option-icon">🌐</div>
+                <div class="option-card-title">
+                  <h2>{{ tr('optLanguageTitle') }}</h2>
+                  <p>{{ tr('optLanguageDesc') }}</p>
+                </div>
+              </div>
+
+              <div class="option-body">
+                <div class="segmented" role="group" aria-label="Language">
+                  <button
+                    type="button"
+                    [class.active]="lang() === 'es'"
+                    [attr.aria-pressed]="lang() === 'es'"
+                    (click)="setLang('es')"
+                  >
+                    <span class="segmented-code">ES</span>
+                    Español
+                  </button>
+                  <button
+                    type="button"
+                    [class.active]="lang() === 'en'"
+                    [attr.aria-pressed]="lang() === 'en'"
+                    (click)="setLang('en')"
+                  >
+                    <span class="segmented-code">EN</span>
+                    English
+                  </button>
+                </div>
+              </div>
+            </article>
+
+            <!-- Donaciones -->
+            <article id="opt-donations" class="option-card">
+              <div class="option-card-head">
+                <div class="option-icon">💙</div>
+                <div class="option-card-title">
+                  <h2>{{ tr('optDonationsTitle') }}</h2>
+                  <p>{{ tr('optDonationsDesc') }}</p>
+                </div>
+              </div>
+
+              <div class="option-body">
+                <button class="btn btn-primary" type="button">
+                  {{ tr('donateBtn') }}
+                </button>
+              </div>
+            </article>
           </div>
-
-          <hr
-            style="
-              margin: 1rem 0;
-              border: none;
-              border-top: 1px solid rgba(255, 255, 255, 0.15);
-            "
-          />
-
-          <h3>{{ tr('language') }}</h3>
-          <select
-            id="opciones-lang"
-            [ngModel]="lang()"
-            (ngModelChange)="setLang($event)"
-          >
-            <option value="es">{{ tr('langEs') }}</option>
-            <option value="en">{{ tr('langEn') }}</option>
-          </select>
-
-          <hr
-            style="
-              margin: 1rem 0;
-              border: none;
-              border-top: 1px solid rgba(255, 255, 255, 0.15);
-            "
-          />
-
-          <h3>{{ tr('donations') }}</h3>
-          <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.75rem">
-            {{ tr('donationsText') }}
-          </p>
-          <button id="opciones-donate">{{ tr('donateBtn') }}</button>
-        </aside>
-
-        <main id="opciones-main">
-          <div id="opciones-block-display"></div>
-        </main>
+        </div>
       </section>
     }
   </div>

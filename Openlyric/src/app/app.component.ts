@@ -8,9 +8,19 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 import { Lang, translate } from './core/i18n';
-import { BibleVersion, Song } from './core/models';
+import {
+  BibleDownload,
+  BibleVersion,
+  CatalogEntry,
+  DownloadCancelledEvent,
+  DownloadDoneEvent,
+  DownloadErrorEvent,
+  DownloadProgressEvent,
+  Song,
+} from './core/models';
 import { OpenlyricService } from './core/openlyric.service';
 
 type Tab = 'lyricas' | 'biblia' | 'opciones';
@@ -102,6 +112,17 @@ export class AppComponent implements OnInit, OnDestroy {
   });
   readonly backgroundStatus = signal('');
 
+  // Catálogo remoto de Biblias
+  readonly catalogUrl = signal('');
+  readonly catalog = signal<CatalogEntry[]>([]);
+  readonly catalogLoading = signal(false);
+  readonly catalogLoaded = signal(false);
+  readonly catalogError = signal('');
+  readonly catalogStatus = signal('');
+  readonly downloads = signal<BibleDownload[]>([]);
+
+  private savedCatalogUrl = '';
+  private unlisteners: UnlistenFn[] = [];
   private autoAdvanceTimer: ReturnType<typeof setInterval> | null = null;
 
   // ---------- Ciclo de vida ----------
@@ -136,10 +157,27 @@ export class AppComponent implements OnInit, OnDestroy {
         this.background.set(savedBackground);
       }
     }
+
+    await this.setupDownloadListeners();
+
+    try {
+      const url = (await this.api.getCatalogUrl()) ?? '';
+      this.catalogUrl.set(url);
+      this.savedCatalogUrl = url;
+      if (url.trim()) {
+        void this.loadCatalog();
+      }
+    } catch {
+      // sin catálogo configurado
+    }
   }
 
   ngOnDestroy(): void {
     this.clearAutoAdvance();
+    for (const unlisten of this.unlisteners) {
+      unlisten();
+    }
+    this.unlisteners = [];
   }
 
   // ---------- i18n ----------
@@ -314,6 +352,265 @@ export class AppComponent implements OnInit, OnDestroy {
     reader.onerror = () => this.backgroundStatus.set(this.tr('errorBackground'));
     reader.readAsDataURL(file);
     input.value = '';
+  }
+
+  async clearBackground(): Promise<void> {
+    try {
+      await this.api.clearBackground();
+      this.background.set('');
+      localStorage.removeItem('openlyric:background');
+      this.backgroundStatus.set(this.tr('backgroundCleared'));
+    } catch {
+      this.backgroundStatus.set(this.tr('errorBackground'));
+    }
+  }
+
+  // ---------- Catálogo y descargas ----------
+  async loadCatalog(): Promise<void> {
+    if (this.catalogLoading()) {
+      return;
+    }
+
+    this.catalogLoading.set(true);
+    this.catalogError.set('');
+    this.catalogStatus.set('');
+
+    try {
+      const url = this.catalogUrl().trim();
+      if (!url) {
+        this.catalogError.set(this.tr('optCatalogRequired'));
+        return;
+      }
+      if (url !== this.savedCatalogUrl) {
+        await this.api.setCatalogUrl(url);
+        this.savedCatalogUrl = url;
+      }
+
+      const entries = (await this.api.fetchBibleCatalog()) ?? [];
+      this.catalog.set(entries);
+      this.catalogLoaded.set(true);
+      if (entries.length === 0) {
+        this.catalogStatus.set(this.tr('optCatalogEmpty'));
+      }
+    } catch (error) {
+      this.catalogError.set(this.describeError(error));
+    } finally {
+      this.catalogLoading.set(false);
+    }
+  }
+
+  async startDownload(entry: CatalogEntry): Promise<void> {
+    if (this.isEntryDownloading(entry)) {
+      return;
+    }
+
+    const id = entry.id || entry.url;
+    const download: BibleDownload = {
+      id,
+      url: entry.url,
+      name: entry.name || entry.abbreviation,
+      filename: entry.filename,
+      downloaded: 0,
+      total: entry.size ?? 0,
+      status: 'downloading',
+    };
+
+    this.catalogError.set('');
+    this.catalogStatus.set('');
+    this.downloads.update((items) => [
+      download,
+      ...items.filter((item) => item.id !== id),
+    ]);
+
+    try {
+      const returnedId = await this.api.downloadBible(entry);
+      if (returnedId && returnedId !== id) {
+        this.downloads.update((items) =>
+          items.map((item) => (item.id === id ? { ...item, id: returnedId } : item)),
+        );
+      }
+    } catch (error) {
+      this.downloads.update((items) =>
+        items.map((item) =>
+          item.id === id
+            ? { ...item, status: 'error', message: this.describeError(error) }
+            : item,
+        ),
+      );
+    }
+  }
+
+  async cancelDownload(download: BibleDownload): Promise<void> {
+    if (download.status !== 'downloading') {
+      return;
+    }
+
+    this.downloads.update((items) =>
+      items.map((item) =>
+        item.id === download.id ? { ...item, status: 'cancelling' } : item,
+      ),
+    );
+
+    try {
+      await this.api.cancelBibleDownload(download.id);
+    } catch {
+      this.downloads.update((items) =>
+        items.map((item) =>
+          item.id === download.id ? { ...item, status: 'error' } : item,
+        ),
+      );
+    }
+  }
+
+  dismissDownload(download: BibleDownload): void {
+    if (download.status === 'downloading' || download.status === 'cancelling') {
+      return;
+    }
+    this.downloads.update((items) => items.filter((item) => item.id !== download.id));
+  }
+
+  isEntryDownloading(entry: CatalogEntry): boolean {
+    return this.downloads().some(
+      (item) =>
+        (item.status === 'downloading' || item.status === 'cancelling') &&
+        (item.id === entry.id || item.url === entry.url),
+    );
+  }
+
+  isInstalled(entry: CatalogEntry): boolean {
+    const abbreviation = (entry.abbreviation || entry.name || '').trim().toLowerCase();
+    const filename = (entry.filename || '').trim().toLowerCase();
+    return this.versions().some((version) => {
+      const versionAbbr = (version.abbreviation || '').toLowerCase();
+      const translation = (version.translation || '').toLowerCase();
+      const id = (version.id || '').toLowerCase();
+      return (
+        (abbreviation.length > 0 &&
+          (versionAbbr === abbreviation || translation === abbreviation)) ||
+        (filename.length > 0 && id === filename)
+      );
+    });
+  }
+
+  progressPercent(download: BibleDownload): number {
+    if (download.total <= 0) {
+      return 0;
+    }
+    return Math.min(100, Math.round((download.downloaded / download.total) * 100));
+  }
+
+  formatBytes(bytes: number): string {
+    const value = Number(bytes) || 0;
+    if (value < 1024) {
+      return `${value} B`;
+    }
+    const units = ['KB', 'MB', 'GB'];
+    let size = value / 1024;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
+  }
+
+  downloadLabel(download: BibleDownload): string {
+    switch (download.status) {
+      case 'downloading':
+        return this.tr('optStatusDownloading');
+      case 'cancelling':
+        return this.tr('optStatusCancelling');
+      case 'done':
+        return this.tr('optStatusDone');
+      case 'cancelled':
+        return this.tr('optStatusCancelled');
+      default:
+        return this.tr('optStatusError');
+    }
+  }
+
+  private describeError(error: unknown): string {
+    const message = typeof error === 'string' ? error : String(error);
+    if (message === 'catalog-empty') {
+      return this.tr('optCatalogRequired');
+    }
+    return message;
+  }
+
+  private async refreshVersions(): Promise<void> {
+    try {
+      this.versions.set((await this.api.loadBibleVersions()) ?? []);
+    } catch {
+      // mantener la lista actual
+    }
+  }
+
+  private async setupDownloadListeners(): Promise<void> {
+    try {
+      const progress = await listen<DownloadProgressEvent>(
+        'bible-download-progress',
+        ({ payload }) => {
+          this.downloads.update((items) =>
+            items.map((item) =>
+              item.id === payload.id
+                ? {
+                    ...item,
+                    filename: payload.filename || item.filename,
+                    downloaded: payload.downloaded,
+                    total: payload.total || item.total,
+                  }
+                : item,
+            ),
+          );
+        },
+      );
+
+      const done = await listen<DownloadDoneEvent>('bible-download-done', ({ payload }) => {
+        this.downloads.update((items) =>
+          items.map((item) =>
+            item.id === payload.id
+              ? {
+                  ...item,
+                  status: 'done',
+                  filename: payload.filename || item.filename,
+                  downloaded: item.total || item.downloaded,
+                }
+              : item,
+          ),
+        );
+        this.catalogStatus.set(this.tr('optDownloadDone'));
+        void this.refreshVersions();
+      });
+
+      const cancelled = await listen<DownloadCancelledEvent>(
+        'bible-download-cancelled',
+        ({ payload }) => {
+          this.downloads.update((items) =>
+            items.map((item) =>
+              item.id === payload.id ? { ...item, status: 'cancelled' } : item,
+            ),
+          );
+          this.catalogStatus.set(this.tr('optDownloadCancelled'));
+        },
+      );
+
+      const failed = await listen<DownloadErrorEvent>(
+        'bible-download-error',
+        ({ payload }) => {
+          this.downloads.update((items) =>
+            items.map((item) =>
+              item.id === payload.id
+                ? { ...item, status: 'error', message: payload.message }
+                : item,
+            ),
+          );
+        },
+      );
+
+      this.unlisteners.push(progress, done, cancelled, failed);
+    } catch {
+      // fuera de Tauri (por ejemplo, `ng serve` en el navegador)
+    }
   }
 
   // ---------- Auto-avance ----------

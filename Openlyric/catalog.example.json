@@ -1,0 +1,22 @@
+{
+  "bibles": [
+    {
+      "id": "rvr",
+      "name": "Reina Valera 1909",
+      "abbreviation": "RVR",
+      "language": "Español",
+      "description": "Traducción clásica en español.",
+      "url": "https://ejemplo.com/biblias/rvr.json",
+      "size": 9240576,
+      "filename": "rvr.json"
+    },
+    {
+      "id": "kjv",
+      "name": "King James Version",
+      "abbreviation": "KJV",
+      "language": "English",
+      "description": "Classic English translation.",
+      "url": "https://ejemplo.com/bibles/kjv.json"
+    }
+  ]
+}

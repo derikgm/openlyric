@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use tauri::{Manager, PhysicalPosition, PhysicalSize, State};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, State};
 
 // ---------------------------------------------------------------------------
 // Modelos
@@ -75,6 +78,60 @@ pub struct BibleVersion {
 struct ConfigFile {
     #[serde(default)]
     background: String,
+    #[serde(default)]
+    catalog_url: String,
+}
+
+/// Entrada del catálogo remoto de Biblias.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogEntry {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub abbreviation: String,
+    #[serde(default)]
+    pub language: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub size: u64,
+    #[serde(default)]
+    pub filename: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgress {
+    id: String,
+    filename: String,
+    downloaded: u64,
+    total: u64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadDone {
+    id: String,
+    filename: String,
+    abbreviation: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadFailed {
+    id: String,
+    message: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadCancelled {
+    id: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -96,7 +153,9 @@ pub struct AppState {
     bibles_dir: PathBuf,
     config_file: PathBuf,
     background: Mutex<String>,
+    catalog_url: Mutex<String>,
     bibles: Mutex<Vec<BibleVersion>>,
+    downloads: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl AppState {
@@ -106,7 +165,9 @@ impl AppState {
             bibles_dir: base.join("bibles"),
             config_file: base.join("openlyric-config.json"),
             background: Mutex::new(String::new()),
+            catalog_url: Mutex::new(String::new()),
             bibles: Mutex::new(Vec::new()),
+            downloads: Mutex::new(HashMap::new()),
         }
     }
 
@@ -126,12 +187,17 @@ impl AppState {
         if cfg.background.starts_with("data:image/") {
             *self.background.lock().map_err(|_| "lock poisoned")? = cfg.background;
         }
+        *self.catalog_url.lock().map_err(|_| "lock poisoned")? = cfg.catalog_url;
         Ok(())
     }
 
     fn save_config(&self) -> Result<(), String> {
         let bg = self.background.lock().map_err(|_| "lock poisoned")?.clone();
-        let cfg = ConfigFile { background: bg };
+        let catalog_url = self.catalog_url.lock().map_err(|_| "lock poisoned")?.clone();
+        let cfg = ConfigFile {
+            background: bg,
+            catalog_url,
+        };
         let data = serde_json::to_string(&cfg).map_err(|e| e.to_string())?;
         fs::write(&self.config_file, data).map_err(|e| e.to_string())
     }
@@ -574,6 +640,336 @@ fn position_on_secondary_monitor(app: &tauri::AppHandle) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Catálogo remoto y descarga de Biblias
+// ---------------------------------------------------------------------------
+
+fn is_http_url(url: &str) -> bool {
+    let url = url.trim().to_lowercase();
+    url.starts_with("http://") || url.starts_with("https://")
+}
+
+fn parse_catalog(text: &str) -> Result<Vec<CatalogEntry>, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(text).map_err(|e| format!("catálogo inválido: {e}"))?;
+
+    let items = match value {
+        serde_json::Value::Array(items) => items,
+        serde_json::Value::Object(mut obj) => match obj.remove("bibles") {
+            Some(serde_json::Value::Array(items)) => items,
+            _ => {
+                return Err(
+                    "el catálogo debe ser un arreglo o un objeto con la clave \"bibles\"".to_string(),
+                )
+            }
+        },
+        _ => return Err("formato de catálogo no reconocido".to_string()),
+    };
+
+    let mut entries = Vec::new();
+    for item in items {
+        let mut entry: CatalogEntry =
+            serde_json::from_value(item).map_err(|e| format!("entrada inválida: {e}"))?;
+        entry.url = entry.url.trim().to_string();
+        if entry.url.is_empty() {
+            continue;
+        }
+        if entry.abbreviation.trim().is_empty() {
+            entry.abbreviation = entry.name.trim().to_string();
+        }
+        if entry.name.trim().is_empty() {
+            entry.name = entry.abbreviation.clone();
+        }
+        if entry.filename.trim().is_empty() {
+            entry.filename = sanitize_filename(&entry.url);
+        } else {
+            entry.filename = sanitize_filename(&entry.filename);
+        }
+        if entry.id.trim().is_empty() {
+            entry.id = entry.filename.trim_end_matches(".json").to_string();
+        }
+        entries.push(entry);
+    }
+    Ok(entries)
+}
+
+fn sanitize_filename(candidate: &str) -> String {
+    let base = candidate
+        .rsplit('/')
+        .next()
+        .unwrap_or(candidate)
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(candidate);
+
+    let mut name = String::new();
+    for c in base.chars() {
+        let c = c.to_ascii_lowercase();
+        if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+            name.push(c);
+        } else if c.is_whitespace() {
+            name.push('-');
+        }
+    }
+
+    let name: String = name.trim_matches(|c| c == '.' || c == '-' || c == '_').to_string();
+    let name = if name.is_empty() {
+        "biblia".to_string()
+    } else {
+        name
+    };
+
+    if name.to_lowercase().ends_with(".json") {
+        name
+    } else {
+        format!("{name}.json")
+    }
+}
+
+fn http_agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        .timeout_connect(std::time::Duration::from_secs(15))
+        .timeout_read(std::time::Duration::from_secs(60))
+        .user_agent("OpenLyric/0.1")
+        .build()
+}
+
+fn download_to_file(
+    url: &str,
+    dest: &Path,
+    cancel: &Arc<AtomicBool>,
+    app: &tauri::AppHandle,
+    id: &str,
+    filename: &str,
+) -> Result<(), String> {
+    let response = http_agent()
+        .get(url)
+        .call()
+        .map_err(|e| format!("no se pudo descargar: {e}"))?;
+    let total = response
+        .header("Content-Length")
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let mut reader = response.into_reader();
+    let mut file = fs::File::create(dest).map_err(|e| e.to_string())?;
+    let mut downloaded: u64 = 0;
+    let mut buffer = [0u8; 64 * 1024];
+    let mut last_emit = std::time::Instant::now();
+
+    loop {
+        if cancel.load(Ordering::SeqCst) {
+            return Err("cancelled".to_string());
+        }
+
+        let read = reader.read(&mut buffer).map_err(|e| e.to_string())?;
+        if read == 0 {
+            break;
+        }
+        file.write_all(&buffer[..read]).map_err(|e| e.to_string())?;
+        downloaded += read as u64;
+
+        if last_emit.elapsed() >= std::time::Duration::from_millis(120) {
+            last_emit = std::time::Instant::now();
+            let _ = app.emit(
+                "bible-download-progress",
+                DownloadProgress {
+                    id: id.to_string(),
+                    filename: filename.to_string(),
+                    downloaded,
+                    total,
+                },
+            );
+        }
+    }
+
+    file.flush().map_err(|e| e.to_string())?;
+    let _ = app.emit(
+        "bible-download-progress",
+        DownloadProgress {
+            id: id.to_string(),
+            filename: filename.to_string(),
+            downloaded,
+            total: total.max(downloaded),
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
+fn get_catalog_url(state: State<'_, AppState>) -> Result<String, String> {
+    Ok(state
+        .catalog_url
+        .lock()
+        .map_err(|_| "lock poisoned")?
+        .clone())
+}
+
+#[tauri::command]
+fn set_catalog_url(url: String, state: State<'_, AppState>) -> Result<(), String> {
+    let url = url.trim().to_string();
+    if !url.is_empty() && !is_http_url(&url) {
+        return Err("la URL del catálogo debe empezar por http:// o https://".to_string());
+    }
+    *state.catalog_url.lock().map_err(|_| "lock poisoned")? = url;
+    state.save_config()
+}
+
+#[tauri::command(async)]
+fn fetch_bible_catalog(state: State<'_, AppState>) -> Result<Vec<CatalogEntry>, String> {
+    let url = state
+        .catalog_url
+        .lock()
+        .map_err(|_| "lock poisoned")?
+        .trim()
+        .to_string();
+    if url.is_empty() {
+        return Err("catalog-empty".to_string());
+    }
+    if !is_http_url(&url) {
+        return Err("la URL del catálogo debe empezar por http:// o https://".to_string());
+    }
+
+    let body = http_agent()
+        .get(&url)
+        .call()
+        .map_err(|e| format!("no se pudo obtener el catálogo: {e}"))?
+        .into_string()
+        .map_err(|e| format!("no se pudo leer el catálogo: {e}"))?;
+
+    parse_catalog(&body)
+}
+
+#[tauri::command]
+fn download_bible(
+    entry: CatalogEntry,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let url = entry.url.trim().to_string();
+    if !is_http_url(&url) {
+        return Err("la URL de descarga debe empezar por http:// o https://".to_string());
+    }
+
+    let filename = sanitize_filename(if entry.filename.trim().is_empty() {
+        &url
+    } else {
+        entry.filename.trim()
+    });
+    let id = if entry.id.trim().is_empty() {
+        filename.trim_end_matches(".json").to_string()
+    } else {
+        entry.id.trim().to_string()
+    };
+    let abbreviation = if entry.abbreviation.trim().is_empty() {
+        entry.name.trim().to_string()
+    } else {
+        entry.abbreviation.trim().to_string()
+    };
+
+    let bibles_dir = state.bibles_dir.clone();
+    fs::create_dir_all(&bibles_dir).map_err(|e| e.to_string())?;
+
+    let destination = bibles_dir.join(&filename);
+    let partial = bibles_dir.join(format!("{filename}.part"));
+
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let mut downloads = state.downloads.lock().map_err(|_| "lock poisoned")?;
+        downloads.insert(id.clone(), cancel.clone());
+    }
+
+    let thread_id = id.clone();
+    let thread_filename = filename.clone();
+    let thread_app = app.clone();
+    std::thread::spawn(move || {
+        let result =
+            download_to_file(&url, &partial, &cancel, &thread_app, &thread_id, &thread_filename);
+
+        let outcome = match result {
+            Ok(()) => {
+                let valid = fs::read_to_string(&partial)
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                    .is_some();
+                if !valid {
+                    let _ = fs::remove_file(&partial);
+                    Err(DownloadFailed {
+                        id: thread_id.clone(),
+                        message: "el archivo descargado no es un JSON válido".to_string(),
+                    })
+                } else {
+                    match fs::rename(&partial, &destination) {
+                        Ok(()) => {
+                            if let Ok(mut cache) = thread_app.state::<AppState>().bibles.lock() {
+                                cache.clear();
+                            }
+                            let _ = thread_app.emit(
+                                "bible-download-done",
+                                DownloadDone {
+                                    id: thread_id.clone(),
+                                    filename: thread_filename.clone(),
+                                    abbreviation: abbreviation.clone(),
+                                },
+                            );
+                            Ok(())
+                        }
+                        Err(e) => {
+                            let _ = fs::remove_file(&partial);
+                            Err(DownloadFailed {
+                                id: thread_id.clone(),
+                                message: e.to_string(),
+                            })
+                        }
+                    }
+                }
+            }
+            Err(message) if message == "cancelled" => {
+                let _ = fs::remove_file(&partial);
+                let _ = thread_app.emit(
+                    "bible-download-cancelled",
+                    DownloadCancelled {
+                        id: thread_id.clone(),
+                    },
+                );
+                Ok(())
+            }
+            Err(message) => {
+                let _ = fs::remove_file(&partial);
+                Err(DownloadFailed {
+                    id: thread_id.clone(),
+                    message,
+                })
+            }
+        };
+
+        if let Err(failed) = outcome {
+            let _ = thread_app.emit("bible-download-error", failed);
+        }
+
+        if let Ok(mut downloads) = thread_app.state::<AppState>().downloads.lock() {
+            downloads.remove(&thread_id);
+        }
+    });
+
+    Ok(id)
+}
+
+#[tauri::command]
+fn cancel_bible_download(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let downloads = state.downloads.lock().map_err(|_| "lock poisoned")?;
+    if let Some(flag) = downloads.get(&id) {
+        flag.store(true, Ordering::SeqCst);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_background(state: State<'_, AppState>) -> Result<(), String> {
+    *state.background.lock().map_err(|_| "lock poisoned")? = String::new();
+    state.save_config()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let base = resolve_base_dir();
@@ -592,7 +988,13 @@ pub fn run() {
             create_song,
             set_background,
             get_background,
-            get_screens
+            clear_background,
+            get_screens,
+            get_catalog_url,
+            set_catalog_url,
+            fetch_bible_catalog,
+            download_bible,
+            cancel_bible_download
         ])
         .setup(|app| {
             position_on_secondary_monitor(app.handle());
@@ -664,5 +1066,38 @@ mod tests {
     fn builds_slug() {
         assert_eq!(slugify("Mi Canción!"), "micancin");
         assert_eq!(slugify("¡¡¡"), "cancion");
+    }
+
+    #[test]
+    fn sanitizes_bible_filename() {
+        assert_eq!(sanitize_filename("Reina Valera 1909.json"), "reina-valera-1909.json");
+        assert_eq!(
+            sanitize_filename("https://example.com/bibles/RVR.json?token=abc"),
+            "rvr.json"
+        );
+        assert_eq!(sanitize_filename("https://example.com/"), "biblia.json");
+        assert_eq!(sanitize_filename("valera"), "valera.json");
+    }
+
+    #[test]
+    fn parses_catalog_shapes() {
+        let wrapped = r#"{"bibles":[{"id":"rvr","name":"Reina Valera","url":"https://example.com/rvr.json","size":100}]}"#;
+        let entries = parse_catalog(wrapped).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "rvr");
+        assert_eq!(entries[0].abbreviation, "Reina Valera");
+
+        let plain = r#"[{"name":"NVI","url":"https://example.com/nvi.json"}]"#;
+        assert_eq!(parse_catalog(plain).unwrap().len(), 1);
+
+        assert!(parse_catalog(r#"{"foo":1}"#).is_err());
+    }
+
+    #[test]
+    fn validates_http_urls() {
+        assert!(is_http_url("https://example.com/a.json"));
+        assert!(is_http_url("http://example.com/a.json"));
+        assert!(!is_http_url("ftp://example.com/a.json"));
+        assert!(!is_http_url("example.com/a.json"));
     }
 }
