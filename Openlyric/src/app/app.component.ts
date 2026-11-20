@@ -19,6 +19,7 @@ import {
   DownloadDoneEvent,
   DownloadErrorEvent,
   DownloadProgressEvent,
+  ScreenInfo,
   Song,
 } from './core/models';
 import { OpenlyricService } from './core/openlyric.service';
@@ -121,6 +122,11 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly catalogStatus = signal('');
   readonly downloads = signal<BibleDownload[]>([]);
 
+  // Pantalla de salida
+  readonly screens = signal<ScreenInfo[]>([]);
+  readonly screenSelection = signal('auto');
+  readonly screenStatus = signal('');
+
   private savedCatalogUrl = '';
   private unlisteners: UnlistenFn[] = [];
   private autoAdvanceTimer: ReturnType<typeof setInterval> | null = null;
@@ -157,6 +163,8 @@ export class AppComponent implements OnInit, OnDestroy {
         this.background.set(savedBackground);
       }
     }
+
+    await this.refreshScreens();
 
     await this.setupDownloadListeners();
 
@@ -363,6 +371,52 @@ export class AppComponent implements OnInit, OnDestroy {
     } catch {
       this.backgroundStatus.set(this.tr('errorBackground'));
     }
+  }
+
+  // ---------- Pantalla ----------
+  async refreshScreens(): Promise<void> {
+    try {
+      const screens = (await this.api.getScreens()) ?? [];
+      this.screens.set(screens);
+
+      const selection = (await this.api.getScreenSelection()) ?? 'auto';
+      this.screenSelection.set(this.validScreenSelection(selection));
+    } catch {
+      this.screens.set([]);
+      this.screenSelection.set('auto');
+    }
+  }
+
+  async onScreenSelected(value: string): Promise<void> {
+    const selection = value === '' ? 'auto' : value;
+    this.screenSelection.set(selection);
+    this.screenStatus.set('');
+
+    try {
+      await this.api.setScreenSelection(selection);
+      this.screenStatus.set(this.tr('optScreenUpdated'));
+    } catch {
+      this.screenStatus.set(this.tr('optScreenFailed'));
+    }
+  }
+
+  screenLabel(screen: ScreenInfo, index: number): string {
+    const base = `${this.tr('optScreenMonitor')} ${index + 1} · ${
+      screen.width
+    }×${screen.height}`;
+    return screen.isPrimary ? `${base} · ${this.tr('optScreenPrimary')}` : base;
+  }
+
+  private validScreenSelection(selection: string): string {
+    if (selection === 'auto') {
+      return 'auto';
+    }
+    const index = Number(selection);
+    return Number.isInteger(index) &&
+      index >= 0 &&
+      index < this.screens().length
+      ? String(index)
+      : 'auto';
   }
 
   // ---------- Catálogo y descargas ----------

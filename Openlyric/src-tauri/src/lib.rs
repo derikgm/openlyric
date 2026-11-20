@@ -74,12 +74,22 @@ pub struct BibleVersion {
     pub books: Vec<BibleBook>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 struct ConfigFile {
     #[serde(default)]
     background: String,
     #[serde(default)]
     catalog_url: String,
+    #[serde(default = "default_screen_selection")]
+    screen_selection: String,
+}
+
+fn default_screen_selection() -> String {
+    "auto".to_string()
+}
+
+fn is_valid_screen_selection(selection: &str) -> bool {
+    selection == "auto" || selection.parse::<usize>().is_ok()
 }
 
 /// Entrada del catálogo remoto de Biblias.
@@ -154,6 +164,7 @@ pub struct AppState {
     config_file: PathBuf,
     background: Mutex<String>,
     catalog_url: Mutex<String>,
+    screen_selection: Mutex<String>,
     bibles: Mutex<Vec<BibleVersion>>,
     downloads: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
@@ -166,6 +177,7 @@ impl AppState {
             config_file: base.join("openlyric-config.json"),
             background: Mutex::new(String::new()),
             catalog_url: Mutex::new(String::new()),
+            screen_selection: Mutex::new(default_screen_selection()),
             bibles: Mutex::new(Vec::new()),
             downloads: Mutex::new(HashMap::new()),
         }
@@ -188,15 +200,27 @@ impl AppState {
             *self.background.lock().map_err(|_| "lock poisoned")? = cfg.background;
         }
         *self.catalog_url.lock().map_err(|_| "lock poisoned")? = cfg.catalog_url;
+        if is_valid_screen_selection(&cfg.screen_selection) {
+            *self
+                .screen_selection
+                .lock()
+                .map_err(|_| "lock poisoned")? = cfg.screen_selection;
+        }
         Ok(())
     }
 
     fn save_config(&self) -> Result<(), String> {
         let bg = self.background.lock().map_err(|_| "lock poisoned")?.clone();
         let catalog_url = self.catalog_url.lock().map_err(|_| "lock poisoned")?.clone();
+        let screen_selection = self
+            .screen_selection
+            .lock()
+            .map_err(|_| "lock poisoned")?
+            .clone();
         let cfg = ConfigFile {
             background: bg,
             catalog_url,
+            screen_selection,
         };
         let data = serde_json::to_string(&cfg).map_err(|e| e.to_string())?;
         fs::write(&self.config_file, data).map_err(|e| e.to_string())
@@ -602,42 +626,78 @@ fn get_screens(app: tauri::AppHandle) -> Result<Vec<ScreenInfo>, String> {
     Ok(out)
 }
 
-fn position_on_secondary_monitor(app: &tauri::AppHandle) {
+/// Resuelve qué monitor usar. `auto` prefiere el primer monitor que no sea el
+/// principal; si no hay ninguno, usa el primero.
+fn resolve_monitor_index(
+    app: &tauri::AppHandle,
+    selection: &str,
+    monitors: &[tauri::Monitor],
+) -> usize {
+    if let Ok(index) = selection.parse::<usize>() {
+        if index < monitors.len() {
+            return index;
+        }
+    }
+
+    let primary = app.primary_monitor().ok().flatten();
+    monitors
+        .iter()
+        .position(|monitor| match &primary {
+            Some(primary) => {
+                monitor.position() != primary.position() || monitor.size() != primary.size()
+            }
+            None => false,
+        })
+        .unwrap_or(0)
+}
+
+fn apply_monitor_selection(app: &tauri::AppHandle, selection: &str) {
     let Ok(monitors) = app.available_monitors() else {
         return;
     };
-    if monitors.len() < 2 {
+    if monitors.is_empty() {
         return;
     }
-    let Ok(primary) = app.primary_monitor() else {
-        return;
-    };
-    let Some(primary) = primary else {
-        return;
-    };
-    let primary_pos = primary.position();
-    let primary_size = primary.size();
 
-    let mut target = None;
-    for monitor in &monitors {
-        if monitor.position() == primary_pos && monitor.size() == primary_size {
-            continue;
-        }
-        target = Some(monitor.clone());
-        break;
-    }
-    let Some(target) = target else {
+    let index = resolve_monitor_index(app, selection, &monitors);
+    let Some(target) = monitors.get(index) else {
         return;
     };
+    let pos = target.position();
+    let size = target.size();
 
     if let Some(window) = app.get_webview_window("main") {
-        let pos = target.position();
-        let size = target.size();
         let _ = window.set_fullscreen(false);
         let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
         let _ = window.set_size(PhysicalSize::new(size.width, size.height));
         let _ = window.set_fullscreen(true);
     }
+}
+
+#[tauri::command]
+fn get_screen_selection(state: State<'_, AppState>) -> Result<String, String> {
+    Ok(state
+        .screen_selection
+        .lock()
+        .map_err(|_| "lock poisoned")?
+        .clone())
+}
+
+#[tauri::command]
+fn set_screen_selection(
+    selection: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let selection = selection.trim().to_string();
+    if !is_valid_screen_selection(&selection) {
+        return Err("selección de monitor inválida".to_string());
+    }
+
+    *state.screen_selection.lock().map_err(|_| "lock poisoned")? = selection.clone();
+    state.save_config()?;
+    apply_monitor_selection(&app, &selection);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -990,6 +1050,8 @@ pub fn run() {
             get_background,
             clear_background,
             get_screens,
+            get_screen_selection,
+            set_screen_selection,
             get_catalog_url,
             set_catalog_url,
             fetch_bible_catalog,
@@ -997,7 +1059,13 @@ pub fn run() {
             cancel_bible_download
         ])
         .setup(|app| {
-            position_on_secondary_monitor(app.handle());
+            let selection = app
+                .state::<AppState>()
+                .screen_selection
+                .lock()
+                .map(|selection| selection.clone())
+                .unwrap_or_else(|_| default_screen_selection());
+            apply_monitor_selection(app.handle(), &selection);
             Ok(())
         })
         .run(tauri::generate_context!())

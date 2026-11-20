@@ -37,6 +37,14 @@ export class OpenlyricService {
     return invoke<ScreenInfo[]>('get_screens');
   }
 
+  getScreenSelection(): Promise<string> {
+    return invoke<string>('get_screen_selection');
+  }
+
+  setScreenSelection(selection: string): Promise<void> {
+    return invoke<void>('set_screen_selection', { selection });
+  }
+
   getCatalogUrl(): Promise<string> {
     return invoke<string>('get_catalog_url');
   }
